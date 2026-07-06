@@ -61,7 +61,8 @@
   .tags { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 5px; }
   .tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--chip); color: var(--muted); }
   .tag.free { background: rgba(24,128,56,.14); color: var(--green); }
-  .dir { flex: none; display: grid; place-items: center; text-align: center; }
+  .dir { flex: none; display: grid; place-items: center; text-align: center;
+    border: none; background: none; padding: 0; font-family: inherit; cursor: pointer; }
   .dir .btn { width: 42px; height: 42px; border-radius: 50%; background: var(--accent);
     display: grid; place-items: center; }
   .dir .btn svg { width: 20px; height: 20px; fill: var(--on-accent); }
@@ -111,6 +112,22 @@
     left: 12px; padding: 7px 13px; border-radius: 16px; background: var(--sheet);
     color: var(--muted); font-size: 12px; box-shadow: var(--shadow); display: none; cursor: pointer; }
   body.driving #ratechip { display: block; }
+  body.nav #ratechip { display: none; }
+
+  /* ---- turn-by-turn chrome ---- */
+  #navbanner { position: absolute; z-index: 640; top: calc(env(safe-area-inset-top, 0px) + 12px);
+    left: 12px; right: 12px; background: #188038; color: #fff; border-radius: 14px;
+    box-shadow: var(--shadow); display: none; align-items: center; gap: 14px; padding: 12px 16px; }
+  body.nav #navbanner { display: flex; }
+  .nb-arrow { font-size: 34px; line-height: 1; flex: none; }
+  .nb-dist { font-size: 21px; font-weight: 500; }
+  .nb-text { font-size: 15px; opacity: .95; margin-top: 1px; }
+  #etabar { position: absolute; z-index: 640; left: 50%; transform: translateX(-50%);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 26px); background: var(--sheet);
+    border-radius: 20px; box-shadow: var(--shadow); padding: 9px 16px; font-size: 14px;
+    color: var(--muted); display: none; white-space: nowrap; }
+  body.nav #etabar { display: block; }
+  #etabar b { font-size: 16px; color: var(--green); font-weight: 500; }
 
   /* ---- spot-detail card ---- */
   .spotcard { position: absolute; z-index: 650; left: 10px; right: 10px;
@@ -128,6 +145,14 @@
   .sc-rows { margin-top: 10px; font-size: 14px; line-height: 1.75; }
   .sc-rows .warn { color: #ea4335; font-weight: 500; }
   .sc-rows a { color: var(--accent); text-decoration: none; }
+  .sc-actions { display: flex; gap: 10px; margin-top: 14px; }
+  .sc-actions .primary { flex: 1; height: 44px; border: none; border-radius: 22px;
+    background: var(--accent); color: var(--on-accent); font-family: inherit; font-size: 15px;
+    font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .sc-actions .primary svg { width: 18px; height: 18px; fill: var(--on-accent); }
+  .sc-actions .primary:active { filter: brightness(.92); }
+  .sc-actions .ghost { padding: 0 16px; height: 44px; display: grid; place-items: center;
+    border-radius: 22px; background: var(--chip); color: var(--text); text-decoration: none; font-size: 13px; }
 
   #toast { position: absolute; z-index: 700; left: 50%; transform: translateX(-50%);
     bottom: calc(env(safe-area-inset-bottom, 0px) + 92px); background: rgba(32,33,36,.92);
@@ -136,6 +161,7 @@
 
   @media (min-width: 760px) {
     .searchbar { width: 400px; right: auto; }
+    #navbanner { width: 420px; right: auto; }
     .sheet { width: 400px; right: auto; top: 74px; bottom: 16px; height: auto; border-radius: 16px; }
     .grip { cursor: default; }
     #recenter { bottom: 18px; }
@@ -156,6 +182,15 @@
 <button class="fab" id="exitdrive" type="button" aria-label="Exit driving mode">✕</button>
 <div id="ratechip" role="button" title="Tap to refresh rates"></div>
 
+<div id="navbanner">
+  <div class="nb-arrow" id="nbarrow"></div>
+  <div>
+    <div class="nb-dist" id="nbdist"></div>
+    <div class="nb-text" id="nbtext"></div>
+  </div>
+</div>
+<div id="etabar"><b id="etamin"></b><span id="etasub"></span></div>
+
 <div class="spotcard" id="spotcard" hidden>
   <div class="sc-head">
     <div>
@@ -166,6 +201,12 @@
   </div>
   <div class="sc-chips" id="scchips"></div>
   <div class="sc-rows" id="scrows"></div>
+  <div class="sc-actions">
+    <button class="primary" id="scstart" type="button">
+      <svg viewBox="0 0 24 24"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>Start
+    </button>
+    <a class="ghost" id="scmaps" target="_blank" rel="noopener">Maps ↗</a>
+  </div>
 </div>
 
 <div id="toast" role="status"></div>
@@ -188,4 +229,4 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script type="module" src="app.js?v=10"></script>
+<script type="module" src="app.js?v=11"></script>

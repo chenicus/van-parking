@@ -1,6 +1,7 @@
-import { rankMeters, rateNow, limitNow, minsToLabel, distMeters, MID, ENF_END } from './rank.js?v=10';
-import { buildBlocks, createLabelLayer, towSoon, fmtRate, fmtLimit } from './labels.js?v=10';
-import { createDriving } from './driving.js?v=10';
+import { rankMeters, rateNow, limitNow, minsToLabel, distMeters, MID, ENF_END } from './rank.js?v=11';
+import { buildBlocks, createLabelLayer, towSoon, fmtRate, fmtLimit } from './labels.js?v=11';
+import { createDriving, SIM_START } from './driving.js?v=11';
+import { fetchRoute, createNav, fmtDist } from './nav.js?v=11';
 
 const $ = (id) => document.getElementById(id);
 const TOPN = 5;
@@ -127,7 +128,13 @@ function rankAndRender(loc, isNew) {
       icon: L.divIcon({ className: '', html, iconSize: [size, size], iconAnchor: [size / 2, size / 2] }),
       zIndexOffset: top ? 1000 - i : 0,
     }).addTo(map);
-    mk.on('click', () => select(i, true));
+    // pin tap → spot-detail card with Start/Close (Google-Maps journey)
+    mk.on('click', () => {
+      select(i, false);
+      collapseSheet();
+      const b = blockForMeter(r.meter);
+      if (b) showSpotCard(b); else select(i, true);
+    });
     markers.push(mk);
     r._marker = mk;
   });
@@ -176,14 +183,14 @@ function renderList(list) {
         <div class="sub">${r.rateNote} · ${r.walkMin} min walk ${r.dir}</div>
         <div class="tags">${tags.join('')}</div>
       </div>
-      <a class="dir" href="${navUrl(r)}" target="_blank" rel="noopener" aria-label="Navigate">
+      <button class="dir" type="button" data-i="${i}" aria-label="Navigate">
         <span class="btn">${NAV_SVG}</span><span class="t">${r.walkMin} min</span>
-      </a>
+      </button>
     </div>`;
   }).join('');
   document.querySelectorAll('.card').forEach((el) => el.addEventListener('click', (e) => {
-    if (e.target.closest('.dir')) return;
     const i = +el.dataset.i;
+    if (e.target.closest('.dir')) { startNav(current[i]); return; }
     select(i, false);
     map.setView([current[i].lat, current[i].lon], 17);
   }));
@@ -254,7 +261,69 @@ $('here').addEventListener('click', async () => {
 $('searchform').addEventListener('submit', (e) => { e.preventDefault(); $('dest').blur(); run(null, true); });
 
 // ---- live price labels + driving mode ----------------------------------------
-let labelLayer = null, driving = null, cardBlock = null;
+let labelLayer = null, driving = null, cardBlock = null, cardOpenDist = null;
+let nav = null, navTarget = null, blocks = [], lastRerouteT = 0;
+
+// match a ranked meter back to its label-layer block (same rate/limit tuple, nearest)
+const blockKey = (m) => [m.rate_9am_6pm, m.rate_6pm_10pm, m.flat_rate, m.time_limit_9am_6pm,
+  m.time_limit_6pm_10pm, m.direction].join('|');
+function blockForMeter(m) {
+  const g = m.geo_point_2d, key = blockKey(m);
+  let best = null, bd = Infinity;
+  for (const b of blocks) {
+    if (b.key !== key) continue;
+    const d = distMeters(b.lat, b.lon, g.lat, g.lon);
+    if (d < bd) { best = b; bd = d; }
+  }
+  return bd <= 60 ? best : null;
+}
+
+// ---- turn-by-turn -------------------------------------------------------------
+async function startNav(target) {
+  $('spotcard').hidden = true; cardBlock = null;
+  const dest = { lat: target.lat, lon: target.lon };
+  const from = driving.lastPos() || (params.get('sim') ? SIM_START : await getPosition());
+  if (!from) { toast('Could not get your location — opening Google Maps.'); window.open(navUrl(dest)); return; }
+  toast('Finding route…', 1500);
+  let r;
+  try { r = await fetchRoute(from, dest); }
+  catch { toast('Routing failed — opening Google Maps.'); window.open(navUrl(dest)); return; }
+  navTarget = dest;
+  clearMap();                       // search pins off; dest marker + price pills stay
+  nav.begin(r);
+  document.body.classList.add('nav');
+  driving.setSimTrack(r.coords);
+  if (!driving.isActive()) driving.start(); else driving.setFollow(true);
+  onNavFix(from);
+}
+
+async function onNavFix(pos) {
+  const p = nav.update(pos);
+  if (!p || !navTarget) return;
+  if (p.arrived || distMeters(pos.lat, pos.lon, navTarget.lat, navTarget.lon) < 25) { endNav(true); return; }
+  $('nbarrow').textContent = p.step.arrow;
+  $('nbdist').textContent = p.stepDist < 20 ? 'Now' : fmtDist(p.stepDist);
+  $('nbtext').textContent = p.step.text;
+  const eta = new Date(Date.now() + p.remainS * 1000);
+  $('etamin').textContent = `${Math.max(1, Math.round(p.remainS / 60))} min`;
+  $('etasub').textContent = ` · ${fmtDist(p.remainM)} · ${eta.getHours() % 12 || 12}:${String(eta.getMinutes()).padStart(2, '0')}`;
+  if (p.offRoute && Date.now() - lastRerouteT > 8000) {
+    lastRerouteT = Date.now();
+    toast('Rerouting…', 2000);
+    try {
+      const r = await fetchRoute(pos, navTarget);
+      if (navTarget) { nav.begin(r); driving.setSimTrack(r.coords); }
+    } catch {}
+  }
+}
+
+function endNav(arrived) {
+  if (!navTarget) return;
+  navTarget = null;
+  nav.clear();
+  document.body.classList.remove('nav');
+  if (arrived) toast('You’ve arrived — pick a spot from the price pills.', 7000);
+}
 
 function toast(msg, ms = 5000) {
   const t = $('toast');
@@ -268,6 +337,8 @@ function updateRateChip() {
 
 function showSpotCard(b) {
   cardBlock = b;
+  const p = driving && driving.lastPos();
+  cardOpenDist = p ? distMeters(p.lat, p.lon, b.lat, b.lon) : null;
   const mins = nowMins();
   const r = rateNow(b.rate1, b.rate2, mins);
 
@@ -298,8 +369,8 @@ function showSpotCard(b) {
     rows.push(`<span class="warn">⚠ No parking ${minsToLabel(tow[0])}–${minsToLabel(tow[1])} — tow-away${soon}</span>`);
   }
   rows.push(b.card ? '💳 Pays by card + PayByPhone' : '🪙 Coins + PayByPhone');
-  rows.push(`<a href="${navUrl(b)}" target="_blank" rel="noopener">Navigate to this block ↗</a>`);
   $('scrows').innerHTML = rows.map((h) => `<div>${h}</div>`).join('');
+  $('scmaps').href = navUrl(b);
   $('spotcard').hidden = false;
 }
 $('scclose').addEventListener('click', () => { $('spotcard').hidden = true; cardBlock = null; });
@@ -310,17 +381,25 @@ function updateRecenter() {
 }
 
 function initLiveLabels() {
-  const blocks = buildBlocks(meters);
+  blocks = buildBlocks(meters);
   labelLayer = createLabelLayer(map, blocks, { nowMins, isWeekend, onTap: showSpotCard });
   labelLayer.refresh();
+  nav = createNav({ map });
 
   driving = createDriving({
     map,
     onFix(pos) {
       labelLayer.setFocus(pos);
       updateRateChip();
-      if (cardBlock && distMeters(pos.lat, pos.lon, cardBlock.lat, cardBlock.lon) > 150) {
-        $('spotcard').hidden = true; cardBlock = null;
+      if (nav.isActive()) onNavFix(pos);
+      // auto-dismiss the card only once you've driven PAST its block —
+      // never while approaching a spot you tapped up ahead
+      if (cardBlock) {
+        const d = distMeters(pos.lat, pos.lon, cardBlock.lat, cardBlock.lon);
+        if (d > 150 && cardOpenDist != null && d > cardOpenDist + 40) {
+          $('spotcard').hidden = true; cardBlock = null;
+        }
+        if (cardOpenDist != null) cardOpenDist = Math.min(cardOpenDist, d);
       }
     },
     onActiveChange(state) {
@@ -334,7 +413,8 @@ function initLiveLabels() {
   });
 
   $('drivebtn').addEventListener('click', () => driving.start());
-  $('exitdrive').addEventListener('click', () => driving.stop());
+  $('exitdrive').addEventListener('click', () => { endNav(false); driving.stop(); });
+  $('scstart').addEventListener('click', () => { if (cardBlock) startNav(cardBlock); });
   $('ratechip').addEventListener('click', () => { labelLayer.refresh(); updateRateChip(); });
   $('recenter').addEventListener('click', async () => {
     if (driving.isActive()) { driving.setFollow(true); return; }

@@ -1,6 +1,6 @@
 // Driving mode: live follow-me tracking, car chevron, wake lock, GPS simulator.
-// No routing — the map follows GPS and the label layer does the rest.
-import { distMeters } from './rank.js?v=10';
+// Routing lives in nav.js — this module only produces fixes and follows them.
+import { distMeters } from './rank.js?v=11';
 
 function bearingDeg(lat1, lon1, lat2, lon2) {
   const rad = Math.PI / 180;
@@ -17,23 +17,26 @@ const SIM_TRACK = [   // up Howe St, left onto Robson toward Burrard
   [49.2806, -123.1215], [49.2823, -123.1196], [49.2836, -123.1240],
   [49.2846, -123.1266], [49.2856, -123.1292],
 ];
+export const SIM_START = { lat: SIM_TRACK[0][0], lon: SIM_TRACK[0][1] };
 function makeSimGeo(speed = 12) {
-  let timer = null;
+  let timer = null, track = SIM_TRACK, seg = 0, prog = 0;
   return {
+    // nav mode swaps in the route geometry so the sim car drives the route
+    setTrack(t) { if (t && t.length > 1) { track = t; seg = 0; prog = 0; } },
     watchPosition(cb) {
-      let seg = 0, prog = 0, tick = 0;
+      let tick = 0;
       timer = setInterval(() => {
         tick++;
-        let [aLat, aLon] = SIM_TRACK[seg];
-        let [bLat, bLon] = SIM_TRACK[seg + 1];
+        let [aLat, aLon] = track[seg];
+        let [bLat, bLon] = track[seg + 1];
         let segLen = distMeters(aLat, aLon, bLat, bLon);
         prog += speed;
-        while (prog > segLen && seg < SIM_TRACK.length - 2) {
+        while ((prog > segLen || segLen === 0) && seg < track.length - 2) {
           prog -= segLen; seg++;
-          [aLat, aLon] = SIM_TRACK[seg]; [bLat, bLon] = SIM_TRACK[seg + 1];
+          [aLat, aLon] = track[seg]; [bLat, bLon] = track[seg + 1];
           segLen = distMeters(aLat, aLon, bLat, bLon);
         }
-        const f = Math.min(prog / segLen, 1);
+        const f = segLen ? Math.min(prog / segLen, 1) : 1;
         const jit = () => (Math.random() - 0.5) * 2 * 0.00004; // ~±4 m
         cb({
           coords: {
@@ -99,6 +102,7 @@ export function createDriving({ map, onFix, onActiveChange, onFollowChange }) {
     isFollowing: () => follow,
     lastPos: () => lastPos,
     setFollow,
+    setSimTrack: (t) => geo.setTrack?.(t),
     start() {
       if (active || !geo) return;
       active = true; follow = true; lastPos = null;

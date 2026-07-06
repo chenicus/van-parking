@@ -10,7 +10,7 @@
 import {
   parseMoney, parseTimeLimit, parseRange, distMeters,
   rateNow, limitNow, inRange,
-} from './rank.js?v=10';
+} from './rank.js?v=11';
 
 const JOIN_M = 45;                 // meters sharing a tuple within this join one block face
 const CELL_LAT = 0.00045, CELL_LON = 0.00065;   // ~50 m spatial hash
