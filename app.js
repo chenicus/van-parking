@@ -1,4 +1,4 @@
-import { rankMeters } from './rank.js';
+import { rankMeters } from './rank.js?v=8';
 
 const $ = (id) => document.getElementById(id);
 const TOPN = 5;
@@ -235,4 +235,4 @@ $('here').addEventListener('click', async () => {
   $('dest').value = 'My location';
   run({ lat: pos.lat, lon: pos.lon, name: 'My location' }, true);
 });
-$('dest').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.target.blur(); run(null, true); } });
+$('searchform').addEventListener('submit', (e) => { e.preventDefault(); $('dest').blur(); run(null, true); });

@@ -86,11 +86,11 @@
 
 <div id="map"></div>
 
-<div class="searchbar">
+<form class="searchbar" id="searchform">
   <span class="mi">📍</span>
-  <input id="dest" placeholder="Search a destination" />
-  <button class="iconbtn" id="here" aria-label="Use my location">◎</button>
-</div>
+  <input id="dest" type="search" enterkeyhint="search" autocomplete="off" placeholder="Search a destination" />
+  <button class="iconbtn" id="here" type="button" aria-label="Use my location">◎</button>
+</form>
 
 <div class="sheet" id="sheet">
   <div class="grip" id="grip"><div class="handle"></div></div>
@@ -110,4 +110,4 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script type="module" src="app.js"></script>
+<script type="module" src="app.js?v=8"></script>
