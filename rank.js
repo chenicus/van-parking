@@ -121,7 +121,19 @@ export function rankMeters(meters, opts) {
     for (const n of inService) {
       if (distMeters(g.lat, g.lon, n.geo_point_2d.lat, n.geo_point_2d.lon) <= 40) blockCount++;
     }
+    // human-readable rate note: show the 6pm rate drop when the stay straddles it
+    const beforeSix = overlap(arrival, end, ENF_START, MID) > 0;
+    const afterSix = overlap(arrival, end, MID, ENF_END) > 0;
+    let rateNote;
+    if (beforeSix && afterSix && rate1 != null && rate2 != null && rate1 !== rate2) {
+      rateNote = `$${rate1.toFixed(2)}/hr, $${rate2.toFixed(2)} after 6 PM`;
+    } else {
+      const hr = arrival < MID ? rate1 : (arrival < ENF_END ? rate2 : 0);
+      rateNote = hr ? `$${hr.toFixed(2)}/hr` : 'free right now';
+    }
+
     out.push({
+      rateNote,
       meter: m,
       lat: g.lat, lon: g.lon,
       distM: Math.round(d),

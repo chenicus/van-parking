@@ -1,4 +1,4 @@
-import { rankMeters } from './rank.js?v=8';
+import { rankMeters } from './rank.js?v=9';
 
 const $ = (id) => document.getElementById(id);
 const TOPN = 5;
@@ -145,6 +145,7 @@ function select(i, fromMap) {
 
 function renderList(list) {
   if (!list.length) { setStatus('No meters within that walk time. Try a longer walk.'); return; }
+  const durLabel = `${parseFloat($('dur').value)}h`;
   $('results').innerHTML = list.map((r, i) => {
     const price = r.free ? 'FREE' : '$' + r.cost.toFixed(2);
     const tags = [];
@@ -156,8 +157,8 @@ function renderList(list) {
     return `<div class="card" data-i="${i}">
       <div class="num ${i < TOPN ? '' : 'dim'}">${i + 1}</div>
       <div class="body">
-        <div class="price ${r.free ? 'free' : ''}">${price}<span class="sub" style="display:inline;margin-left:8px">${r.hourlyNow ? '$' + r.hourlyNow.toFixed(2) + '/hr now' : 'free now'}</span></div>
-        <div class="sub">${r.walkMin} min walk ${r.dir} · ${r.distM} m away</div>
+        <div class="price ${r.free ? 'free' : ''}">${price}<span class="sub" style="display:inline;margin-left:8px">${r.free ? '' : 'for ' + durLabel}</span></div>
+        <div class="sub">${r.rateNote} · ${r.walkMin} min walk ${r.dir}</div>
         <div class="tags">${tags.join('')}</div>
       </div>
       <a class="dir" href="${navUrl(r)}" target="_blank" rel="noopener" aria-label="Navigate">
