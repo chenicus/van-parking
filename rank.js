@@ -2,9 +2,9 @@
 // Vancouver meters: enforced 9am–10pm. Free 10pm–9am.
 // Two rate windows: 9am–6pm (540–1080 min), 6pm–10pm (1080–1320 min).
 
-const ENF_START = 540;   // 9:00am
-const MID = 1080;        // 6:00pm
-const ENF_END = 1320;    // 10:00pm
+export const ENF_START = 540;   // 9:00am
+export const MID = 1080;        // 6:00pm
+export const ENF_END = 1320;    // 10:00pm
 
 export function parseMoney(s) {
   if (!s) return null;
@@ -64,6 +64,25 @@ export function costFor(arrival, duration, rate1, rate2, flat) {
   const freeMin = duration - meteredMin;
   const freeAfter = end > ENF_END; // some of the stay spills past 10pm
   return { cost: Math.round(metered * 100) / 100, meteredMin, freeMin, freeAfter };
+}
+
+// Hourly rate in effect at a moment (minutes-from-midnight). rate1/rate2 pre-parsed.
+export function rateNow(rate1, rate2, mins) {
+  if (mins < ENF_START || mins >= ENF_END) return { rate: 0, free: true };
+  if (mins < MID) return { rate: rate1 || 0, free: !rate1 };
+  return { rate: rate2 || 0, free: !rate2 };
+}
+
+// Time limit in effect at a moment. Limits pre-parsed to minutes (null/Infinity allowed).
+export function limitNow(limits, mins, weekend) {
+  if (mins < ENF_START || mins >= ENF_END) return null; // unenforced — no limit
+  const day = mins < MID;
+  return weekend ? (day ? limits.wkndDay : limits.wkndEve) : (day ? limits.day : limits.eve);
+}
+
+// Is `mins` inside a parsed [start, end) range?
+export function inRange(range, mins) {
+  return range != null && mins >= range[0] && mins < range[1];
 }
 
 const WALK_M_PER_MIN = 80;      // ~4.8 km/h

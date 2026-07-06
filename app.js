@@ -1,4 +1,6 @@
-import { rankMeters } from './rank.js?v=9';
+import { rankMeters, rateNow, limitNow, minsToLabel, distMeters, MID, ENF_END } from './rank.js?v=10';
+import { buildBlocks, createLabelLayer, towSoon, fmtRate, fmtLimit } from './labels.js?v=10';
+import { createDriving } from './driving.js?v=10';
 
 const $ = (id) => document.getElementById(id);
 const TOPN = 5;
@@ -18,8 +20,20 @@ $('walk').addEventListener('input', (e) => $('walkval').textContent = e.target.v
 const rerun = () => { if (lastLoc) rankAndRender(lastLoc, false); };
 $('dur').addEventListener('change', rerun);
 $('walk').addEventListener('change', rerun);
-// arrival is always "now" — you're parking now
-function nowMins() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
+// arrival is always "now" — you're parking now.
+// ?t=HH:MM mocks the clock (rate-flip testing); ?wknd=1 forces weekend limits.
+const mockT = (() => {
+  const m = (params.get('t') || '').match(/^([0-9]{1,2}):([0-9]{2})$/);
+  return m ? parseInt(m[1]) * 60 + parseInt(m[2]) : null;
+})();
+function nowMins() {
+  if (mockT != null) return mockT;
+  const d = new Date(); return d.getHours() * 60 + d.getMinutes();
+}
+function isWeekend() {
+  if (params.get('wknd')) return true;
+  const day = new Date().getDay(); return day === 0 || day === 6;
+}
 
 const darkMedia = window.matchMedia('(prefers-color-scheme: dark)');
 const TILES = {
@@ -40,6 +54,7 @@ fetch('data/meters.json')
   .then((r) => r.json())
   .then((d) => {
     meters = d;
+    initLiveLabels();
     if (params.get('lat') && params.get('lon')) {
       run({ lat: +params.get('lat'), lon: +params.get('lon'), name: params.get('dest') || 'Dropped pin' }, true);
     } else if (params.get('dest')) {
@@ -237,3 +252,97 @@ $('here').addEventListener('click', async () => {
   run({ lat: pos.lat, lon: pos.lon, name: 'My location' }, true);
 });
 $('searchform').addEventListener('submit', (e) => { e.preventDefault(); $('dest').blur(); run(null, true); });
+
+// ---- live price labels + driving mode ----------------------------------------
+let labelLayer = null, driving = null, cardBlock = null;
+
+function toast(msg, ms = 5000) {
+  const t = $('toast');
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, ms);
+}
+
+function updateRateChip() {
+  $('ratechip').textContent = `${minsToLabel(nowMins())} · rates live`;
+}
+
+function showSpotCard(b) {
+  cardBlock = b;
+  const mins = nowMins();
+  const r = rateNow(b.rate1, b.rate2, mins);
+
+  $('scprice').textContent = r.free ? 'FREE right now' : `${fmtRate(r.rate)}/hr now`;
+  $('scprice').classList.toggle('free', r.free);
+  $('scsub').textContent = `${b.count} meter${b.count > 1 ? 's' : ''} · ~${b.spaces} space${b.spaces > 1 ? 's' : ''} on this block`;
+
+  const chips = [];
+  if (mins < MID && b.rate2 != null && b.rate2 !== b.rate1) chips.push(`${fmtRate(b.rate2)} after 6 PM`);
+  if (mins < ENF_END) chips.push('free after 10 PM');
+  if (b.flat != null) chips.push(`or ${fmtRate(b.flat)} flat`);
+  $('scchips').innerHTML =
+    `<span class="sc-chip now">${r.free ? 'FREE' : fmtRate(r.rate) + '/hr'} now</span>` +
+    chips.map((c) => `<span class="sc-chip">${c}</span>`).join('');
+
+  const rows = [];
+  const lim = limitNow(b.limits, mins, isWeekend());
+  if (lim != null && lim !== Infinity) {
+    const eve = isWeekend() ? b.limits.wkndEve : b.limits.eve;
+    const flip = mins < MID && eve != null && eve !== lim && eve !== Infinity ? ` · ${fmtLimit(eve)} after 6 PM` : '';
+    rows.push(`⏱ Max stay <b>${fmtLimit(lim)}</b>${flip}`);
+  } else if (lim === Infinity) {
+    rows.push('⏱ No time limit');
+  }
+  const tow = towSoon(b, mins, 24 * 60);
+  if (tow) {
+    const soon = tow[0] - mins <= 90 ? ` · starts in ${tow[0] - mins} min` : '';
+    rows.push(`<span class="warn">⚠ No parking ${minsToLabel(tow[0])}–${minsToLabel(tow[1])} — tow-away${soon}</span>`);
+  }
+  rows.push(b.card ? '💳 Pays by card + PayByPhone' : '🪙 Coins + PayByPhone');
+  rows.push(`<a href="${navUrl(b)}" target="_blank" rel="noopener">Navigate to this block ↗</a>`);
+  $('scrows').innerHTML = rows.map((h) => `<div>${h}</div>`).join('');
+  $('spotcard').hidden = false;
+}
+$('scclose').addEventListener('click', () => { $('spotcard').hidden = true; cardBlock = null; });
+
+function updateRecenter() {
+  const show = driving.isActive() ? !driving.isFollowing() : true;
+  $('recenter').classList.toggle('show', show);
+}
+
+function initLiveLabels() {
+  const blocks = buildBlocks(meters);
+  labelLayer = createLabelLayer(map, blocks, { nowMins, isWeekend, onTap: showSpotCard });
+  labelLayer.refresh();
+
+  driving = createDriving({
+    map,
+    onFix(pos) {
+      labelLayer.setFocus(pos);
+      updateRateChip();
+      if (cardBlock && distMeters(pos.lat, pos.lon, cardBlock.lat, cardBlock.lon) > 150) {
+        $('spotcard').hidden = true; cardBlock = null;
+      }
+    },
+    onActiveChange(state) {
+      document.body.classList.toggle('driving', !!state);
+      if (state === 'nolock') toast('Keep your screen on — this browser can\'t hold a wake lock.');
+      updateRateChip();
+      updateRecenter();
+      labelLayer.refresh();
+    },
+    onFollowChange: () => updateRecenter(),
+  });
+
+  $('drivebtn').addEventListener('click', () => driving.start());
+  $('exitdrive').addEventListener('click', () => driving.stop());
+  $('ratechip').addEventListener('click', () => { labelLayer.refresh(); updateRateChip(); });
+  $('recenter').addEventListener('click', async () => {
+    if (driving.isActive()) { driving.setFollow(true); return; }
+    const pos = await getPosition();
+    if (pos) map.setView([pos.lat, pos.lon], 16);
+    else toast('Could not get your location.');
+  });
+  updateRecenter();
+  window.__pk = { map, layer: labelLayer, driving, blocks };  // debug handle
+  if (params.get('sim')) driving.start();
+}
