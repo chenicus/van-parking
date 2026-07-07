@@ -644,7 +644,7 @@ function showSpotCard(b) {
   }
 
   const r = rateNow(b.rate1, b.rate2, mins);
-  $('scprice').textContent = r.free ? 'Free right now' : `${fmtRate(r.rate)}/hr`;
+  $('scprice').innerHTML = r.free ? 'Free right now' : `${fmtRate(r.rate)}<span class="sc-unit">/hr</span>`;
   $('scprice').classList.toggle('free', r.free);
 
   // full-day price breakdown so a "free right now" spot still shows its paid window

@@ -307,11 +307,10 @@
     transition: transform .36s cubic-bezier(.32,.72,0,1), visibility 0s .36s; }
   body.driving .spotcard { bottom: calc(env(safe-area-inset-bottom, 0px) + 78px);
     left: 10px; right: 10px; border-radius: 22px; }
-  .sc-grab { position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
-    width: 36px; height: 5px; border-radius: 3px; background: var(--grabber); }
   .sc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
   .sc-head #scclose { flex: none; margin: -6px -10px 0 0; }
   .sc-price { font-size: var(--fs-large); font-weight: 600; letter-spacing: -.5px; line-height: 1.15; }
+  .sc-price .sc-unit { font-size: var(--fs-headline); font-weight: 500; color: var(--muted); letter-spacing: -.2px; }
   .sc-price.free { color: var(--free); }
   .sc-sub { font-size: var(--fs-body); color: var(--muted); margin-top: 4px; letter-spacing: -.2px; }
   .sc-sched { margin-top: 14px; border-radius: 12px; border: 1px solid var(--line); overflow: hidden; }
@@ -434,7 +433,6 @@
     #recenter { bottom: 18px; }
     .spotcard { left: auto; right: 16px; bottom: 16px; width: 380px; border-radius: 22px; }
     .rlpanel { left: auto; right: 16px; bottom: 16px; width: 380px; border-radius: 22px; max-height: 70vh; }
-    .sc-grab { display: none; }
     .tripcard { right: auto; width: 340px; }
   }
 </style>
@@ -495,7 +493,6 @@
 <div id="etabar" class="mat"><b id="etamin"></b><span id="etasub"></span></div>
 
 <div class="spotcard mat" id="spotcard" hidden>
-  <div class="sc-grab"></div>
   <div class="sc-head">
     <div>
       <div class="sc-price" id="scprice"></div>
@@ -519,7 +516,6 @@
 </div>
 
 <div class="spotcard mat" id="reportsheet" hidden>
-  <div class="sc-grab"></div>
   <div class="sc-head">
     <div>
       <div class="sc-price" style="font-size:var(--fs-title)">What's wrong here?</div>
