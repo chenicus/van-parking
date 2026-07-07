@@ -77,8 +77,8 @@
   }
 
   .searchbar { position: absolute; z-index: 500; top: calc(env(safe-area-inset-top, 0px) + 12px);
-    left: 16px; right: 78px; height: 52px; border-radius: 16px;
-    box-shadow: var(--shadow); display: flex; align-items: center; padding: 0 6px 0 15px; gap: 9px;
+    left: 16px; right: 78px; height: 46px; border-radius: 14px;
+    box-shadow: var(--shadow); display: flex; align-items: center; padding: 0 6px 0 13px; gap: 8px;
     transition: box-shadow .2s ease, transform .2s ease; }
   .searchbar:focus-within { box-shadow: 0 8px 30px rgba(0,0,0,.18), 0 1px 3px rgba(0,0,0,.1); }
   .searchbar .mi { flex: none; color: var(--muted); display: grid; place-items: center;
@@ -108,7 +108,7 @@
 
   /* recent destinations — drops under the searchbar when it's focused */
   .recents { position: absolute; z-index: 600; left: 16px; right: 78px;
-    top: calc(env(safe-area-inset-top, 0px) + 72px); border-radius: 16px;
+    top: calc(env(safe-area-inset-top, 0px) + 66px); border-radius: 14px;
     box-shadow: var(--shadow); overflow: hidden; padding-bottom: 4px;
     display: block; transform-origin: top center; transform: translateY(0); opacity: 1;
     transition: opacity .18s ease, transform .18s cubic-bezier(.32,.72,0,1); }
@@ -135,13 +135,13 @@
     width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; }
   .rc-del:active { background: var(--chip); color: var(--text); }
   .drivebtn-top { position: absolute; z-index: 500; top: calc(env(safe-area-inset-top, 0px) + 12px);
-    right: 16px; width: 52px; height: 52px; border-radius: 16px;
+    right: 16px; width: 52px; height: 46px; border-radius: 14px;
     box-shadow: var(--shadow); border: none; display: grid; place-items: center;
     color: var(--accent); cursor: pointer; }
   .drivebtn-top:active { filter: brightness(.94); }
-  .chips { position: absolute; z-index: 500; top: calc(env(safe-area-inset-top, 0px) + 76px);
-    left: 16px; display: flex; gap: 8px; }
-  .chip { height: 36px; padding: 0 15px; border-radius: 12px; border: none;
+  .chips { position: absolute; z-index: 500; top: calc(env(safe-area-inset-top, 0px) + 70px);
+    left: 16px; display: flex; gap: 6px; }
+  .chip { height: 32px; padding: 0 11px; border-radius: 11px; border: none;
     color: var(--text); font-family: inherit; font-size: var(--fs-body); font-weight: 500; letter-spacing: -.2px;
     display: flex; align-items: center; gap: 6px; box-shadow: var(--shadow); cursor: pointer;
     transition: background .15s, color .15s, transform .13s cubic-bezier(.4,0,.2,1); }
@@ -287,15 +287,23 @@
     -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
     box-shadow: var(--shadow); display: none; align-items: center; gap: 14px; padding: 14px 18px; }
   body.nav #navbanner { display: flex; }
+  /* during turn-by-turn the banner owns the top strip; the drive toggle would
+     collide with it, and the ETA bar's End button already exits nav — so hide it */
+  body.nav .drivebtn-top { display: none; }
   .nb-arrow { font-size: var(--fs-display); line-height: 1; flex: none; }
   .nb-dist { font-size: var(--fs-title); font-weight: 600; letter-spacing: -.4px; }
   .nb-text { font-size: var(--fs-body); opacity: .92; margin-top: 1px; letter-spacing: -.2px; }
   #etabar { position: absolute; z-index: 640; left: 50%; transform: translateX(-50%);
     bottom: calc(env(safe-area-inset-bottom, 0px) + 26px);
-    border-radius: 22px; box-shadow: var(--shadow); padding: 10px 18px; font-size: var(--fs-body);
-    color: var(--muted); display: none; white-space: nowrap; letter-spacing: -.2px; }
-  body.nav #etabar { display: block; }
+    border-radius: 22px; box-shadow: var(--shadow); padding: 10px 12px 10px 18px; font-size: var(--fs-body);
+    color: var(--muted); display: none; white-space: nowrap; letter-spacing: -.2px;
+    align-items: center; gap: 14px; }
+  body.nav #etabar { display: flex; }
   #etabar b { font-size: var(--fs-headline); color: var(--green); font-weight: 600; }
+  #navend { flex: none; border: none; cursor: pointer; font: inherit; font-weight: 600;
+    letter-spacing: -.2px; color: #fff; background: var(--red, #e5484d); border-radius: 16px;
+    padding: 8px 18px; }
+  #navend:active { opacity: .85; }
 
   /* ---- spot-detail card (iOS bottom sheet) ---- */
   .spotcard { position: absolute; z-index: 650; left: 0; right: 0; background: var(--sheet-strong);
@@ -420,12 +428,12 @@
     .sc-flag { background: rgba(250,199,117,.15); color: #f0b74b; }
   }
 
-  #toast { position: absolute; z-index: 700; left: 50%; transform: translateX(-50%);
+  #toast { position: absolute; z-index: 700; left: 16px; right: 16px;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 92px); background: rgba(30,30,32,.86);
     -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
     color: #fff; padding: 12px 18px; border-radius: 14px; font-size: var(--fs-body); display: none;
-    max-width: 92vw; text-align: center; letter-spacing: -.2px; animation: toastIn .26s cubic-bezier(.32,.72,0,1); }
-  @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 14px); } to { opacity: 1; transform: translate(-50%, 0); } }
+    text-align: center; letter-spacing: -.2px; animation: toastIn .26s cubic-bezier(.32,.72,0,1); }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 
   @media (min-width: 760px) {
     .searchbar { width: 400px; right: auto; }
@@ -492,7 +500,10 @@
     <div class="nb-text" id="nbtext"></div>
   </div>
 </div>
-<div id="etabar" class="mat"><b id="etamin"></b><span id="etasub"></span></div>
+<div id="etabar" class="mat">
+  <div class="eta-info"><b id="etamin"></b><span id="etasub"></span></div>
+  <button id="navend" type="button">End</button>
+</div>
 
 <div class="spotcard mat" id="spotcard" hidden>
   <div class="sc-head">
