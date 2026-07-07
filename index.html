@@ -285,6 +285,9 @@
   #recenter.show { opacity: 1; transform: scale(1); pointer-events: auto; }
   #recenter.show:active { transform: scale(.9); }
   body.driving #recenter { right: auto; left: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); }
+  /* during turn-by-turn the ETA bar sits in the bottom-center strip (top ~80px up);
+     lift the re-center button clear of it so they don't overlap */
+  body.nav #recenter { bottom: calc(env(safe-area-inset-bottom, 0px) + 92px); }
 
   /* ---- turn-by-turn chrome ---- */
   #navbanner { position: absolute; z-index: 640; top: calc(env(safe-area-inset-top, 0px) + 12px);
