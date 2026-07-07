@@ -173,17 +173,69 @@ function addRecent(loc, q) {
 
 function renderRecents() {
   const a = loadRecents();
+  $('rcHead').hidden = false;
   $('rcList').innerHTML = a.map((r, i) =>
     `<div class="rc-item" data-i="${i}"><span class="rc-ic">${PIN_SVG}</span>` +
-    `<span class="rc-name">${esc(r.label)}</span>` +
+    `<span class="rc-txt"><span class="rc-name">${esc(r.label)}</span></span>` +
     `<button class="rc-del" type="button" data-del="${i}" aria-label="Remove">${X_SVG}</button></div>`
   ).join('');
   return a.length;
 }
-function showRecents() { if (renderRecents()) $('recents').hidden = false; }
+function showRecents() { suggestSeq++; if (renderRecents()) $('recents').hidden = false; else $('recents').hidden = true; }
 function hideRecents() { $('recents').hidden = true; }
 
-$('dest').addEventListener('focus', showRecents);
+// ---- live suggestions (autocomplete) ----------------------------------------
+// As you type, query Photon (komoot's autocomplete geocoder — CORS-enabled, biased
+// to Vancouver) and list matches in the same panel. Each match already carries its
+// coordinates, so picking one searches directly with no second geocode.
+const SUG_BBOX = '-123.35,49.0,-122.4,49.4';   // metro Vancouver, keeps results local
+let suggestSeq = 0, suggestTimer = null, suggestItems = [];
+
+function featToSuggest(f) {
+  const p = f.properties || {}, c = f.geometry && f.geometry.coordinates;
+  if (!c) return null;
+  const name = p.name || [p.housenumber, p.street].filter(Boolean).join(' ');
+  if (!name) return null;
+  // secondary line: street (when the name isn't already it), then area/city/state — deduped
+  const sub = [p.name && p.street ? p.street : null, p.district, p.city, p.state, p.postcode]
+    .filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).slice(0, 3).join(', ');
+  return { label: name, sub, lat: c[1], lon: c[0] };
+}
+
+function renderSuggest(items) {
+  suggestItems = items;
+  $('rcHead').hidden = true;
+  if (!items.length) { hideRecents(); return; }
+  $('rcList').innerHTML = items.map((s, i) =>
+    `<div class="rc-item" data-s="${i}"><span class="rc-ic">${PIN_SVG}</span>` +
+    `<span class="rc-txt"><span class="rc-name">${esc(s.label)}</span>` +
+    (s.sub ? `<span class="rc-sub">${esc(s.sub)}</span>` : '') + `</span></div>`
+  ).join('');
+  $('recents').hidden = false;
+}
+
+async function fetchSuggest(q) {
+  const seq = ++suggestSeq;
+  const bias = cachedPos || { lat: 49.2606, lon: -123.114 };
+  const url = `https://photon.komoot.io/api/?limit=6&lang=en&bbox=${SUG_BBOX}` +
+    `&lat=${bias.lat}&lon=${bias.lon}&q=${encodeURIComponent(q)}`;
+  let feats;
+  try { feats = (await fetch(url).then((r) => r.json())).features || []; }
+  catch { return; }                       // network hiccup — leave the panel as-is
+  if (seq !== suggestSeq) return;         // a newer keystroke (or a clear) superseded this
+  if ($('dest').value.trim().length < 2) return;
+  renderSuggest(feats.map(featToSuggest).filter(Boolean));
+}
+
+// typing drives the panel: <2 chars → recents, otherwise debounced suggestions
+function onType() {
+  const q = $('dest').value.trim();
+  clearTimeout(suggestTimer);
+  if (q.length < 2) { showRecents(); return; }
+  suggestTimer = setTimeout(() => fetchSuggest(q), 250);
+}
+$('dest').addEventListener('input', onType);
+$('dest').addEventListener('focus', () => { $('dest').value.trim().length >= 2 ? onType() : showRecents(); });
 // keep the panel open until you pick, clear, or tap away — not on every input blur
 document.addEventListener('click', (e) => {
   if ($('recents').hidden) return;
@@ -199,12 +251,14 @@ $('rcList').addEventListener('click', (e) => {
     return;
   }
   const item = e.target.closest('.rc-item');
-  const r = item && loadRecents()[+item.dataset.i];
-  if (!r) return;
-  $('dest').value = r.label;
+  if (!item) return;
+  // a suggestion carries its own coords; a recent is looked up by index
+  const pick = item.dataset.s != null ? suggestItems[+item.dataset.s] : loadRecents()[+item.dataset.i];
+  if (!pick) return;
+  $('dest').value = pick.label;
   $('dest').blur();
   hideRecents();
-  run({ lat: r.lat, lon: r.lon, name: r.label }, true);
+  run({ lat: pick.lat, lon: pick.lon, name: pick.label }, true);
 });
 $('rcClear').addEventListener('click', () => { saveRecents([]); hideRecents(); });
 

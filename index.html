@@ -81,11 +81,15 @@
     letter-spacing: -.1px; font-size: 14px; font-weight: 500; color: var(--accent);
     cursor: pointer; padding: 4px 6px; border-radius: 8px; }
   .rc-head button:active { background: var(--chip); }
+  .rc-head[hidden] { display: none; }
   .rc-item { display: flex; align-items: center; gap: 11px; padding: 10px 8px 10px 15px;
     cursor: pointer; }
   .rc-item:active { background: var(--chip); }
   .rc-ic { flex: none; color: var(--muted); display: grid; place-items: center; }
-  .rc-name { flex: 1; font-size: 16px; letter-spacing: -.2px; color: var(--text);
+  .rc-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .rc-name { font-size: 16px; letter-spacing: -.2px; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rc-sub { font-size: 13px; letter-spacing: -.1px; color: var(--muted);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rc-del { flex: none; border: none; background: none; color: var(--muted);
     width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; }
@@ -123,8 +127,21 @@
     font-weight: 500; color: var(--text); padding: 9px 6px; border-radius: 9px; cursor: pointer; white-space: nowrap; }
   .tc-seg button[hidden] { display: none; }
   .tc-seg button.on { background: var(--seg-on); box-shadow: 0 1px 4px rgba(0,0,0,.16); }
-  .tc-time { width: 100%; height: 42px; border: none; border-radius: 11px; background: var(--chip);
-    color: var(--text); font-family: inherit; font-size: 16px; padding: 0 13px; margin-bottom: 18px; }
+  .tc-time { width: 100%; height: 42px; border: none; border-radius: 12px; background: var(--chip);
+    color: var(--text); font-family: inherit; font-size: 16px; padding: 0 13px; margin-bottom: 18px;
+    accent-color: var(--accent); color-scheme: light dark; letter-spacing: -.2px; }
+  .tc-time::-webkit-datetime-edit { padding: 0; }
+  .tc-time::-webkit-calendar-picker-indicator { opacity: .5; }
+  .tc-time:focus, .tc-time:focus-visible { outline: none; }
+  .tc-time::selection { background: var(--accent); color: var(--on-accent); }
+  /* Chrome desktop: recolor the native blue field-highlight to our black accent,
+     with a small radius + inherited SF font so it matches the design system.
+     (On iPhone the native drum picker is used instead — untouched.) */
+  .tc-time::-webkit-datetime-edit { font: inherit; }
+  .tc-time::-webkit-datetime-edit-hour-field:focus,
+  .tc-time::-webkit-datetime-edit-minute-field:focus,
+  .tc-time::-webkit-datetime-edit-ampm-field:focus {
+    background: var(--accent); color: var(--on-accent); border-radius: 5px; outline: none; padding: 1px 3px; }
   .tc-time[hidden] { display: none; }
   .tc-durhd { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
   .tc-durhd .tc-lbl { margin: 0; }
@@ -281,7 +298,7 @@
   <button class="iconbtn" id="here" type="button" aria-label="Use my location"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/></svg></button>
 </form>
 <div class="recents mat" id="recents" hidden>
-  <div class="rc-head"><span>Recent</span><button type="button" id="rcClear">Clear all</button></div>
+  <div class="rc-head" id="rcHead"><span>Recent</span><button type="button" id="rcClear">Clear all</button></div>
   <div id="rcList"></div>
 </div>
 <button class="drivebtn-top mat" id="drivebtn" type="button" aria-label="Toggle driving mode"><svg class="ic-car" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 1 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg><svg class="ic-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
