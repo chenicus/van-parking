@@ -52,9 +52,14 @@
     }
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; height: 100%; overflow: hidden; color: var(--text); background: var(--map-cover);
+  html, body { margin: 0; overflow: hidden; overscroll-behavior: none; color: var(--text); background: var(--map-cover);
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  html { height: 100%; }
+  /* pin the app to the visual viewport. On iOS Safari `height:100%` mis-resolves as
+     the URL bar shows/hides — leaving a blank strip and letting the whole document
+     rubber-band-drag instead of the map panning. position:fixed locks it to the screen. */
+  body { position: fixed; inset: 0; }
   #map { position: absolute; inset: 0; z-index: 1; }
   .leaflet-control-attribution { font-size: var(--fs-micro); }
 
