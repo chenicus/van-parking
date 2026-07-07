@@ -100,7 +100,11 @@ function getPosition() {
 // ---- geocode ----------------------------------------------------------------
 async function geocodeOne(q) {
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ca&q=${encodeURIComponent(q + ', Vancouver, BC')}`;
-  const j = await fetch(url, { headers: { 'Accept-Language': 'en' } }).then((r) => r.json());
+  const r = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+  // Nominatim is a free shared server; under load it returns 429/503. Flag those
+  // as `busy` so run() can tell "server rate-limited us" from "place not found".
+  if (!r.ok) { const e = new Error('geocode ' + r.status); e.busy = r.status === 429 || r.status === 503; throw e; }
+  const j = await r.json();
   return j.length ? { lat: parseFloat(j[0].lat), lon: parseFloat(j[0].lon), name: j[0].display_name } : null;
 }
 async function geocode(q) {
@@ -127,7 +131,16 @@ async function run(preLoc, isNew) {
   const q = $('dest').value.trim();
   if (!q && !preLoc) return;
   let loc = preLoc;
-  if (!loc) { setStatus('Locating…'); try { loc = await geocode(q); } catch { loc = null; } }
+  if (!loc) {
+    setStatus('Locating…');
+    try { loc = await geocode(q); }
+    catch (e) {
+      setStatus(e.busy
+        ? 'Search is busy right now — wait a moment and try again.'
+        : 'Search is unavailable — check your connection and try again.');
+      return;
+    }
+  }
   if (!loc) { setStatus('Could not find that place. Try an address or nearby landmark.'); return; }
   lastLoc = loc;
   addRecent(loc, q);
