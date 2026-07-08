@@ -208,9 +208,9 @@
     font-weight: 500; color: var(--text); padding: 8px 6px; border-radius: 9px; cursor: pointer; white-space: nowrap; }
   .tc-seg button[hidden] { display: none; }
   .tc-seg button.on { font-weight: 600; }
-  .tc-time { width: 100%; min-width: 0; box-sizing: border-box; height: 40px; border: none;
+  .tc-time { -webkit-appearance: none; appearance: none; width: 100%; min-width: 0; box-sizing: border-box; height: 40px; border: none;
     border-radius: 12px; background: var(--chip); color: var(--text); font-family: inherit; font-size: var(--fs-headline);
-    padding: 0 14px; margin-bottom: 14px; accent-color: var(--accent); color-scheme: light; letter-spacing: -.2px; }
+    padding: 0 14px; margin-bottom: 22px; accent-color: var(--accent); color-scheme: light; letter-spacing: -.2px; }
   .tc-time::-webkit-datetime-edit { padding: 0; }
   /* iOS/Safari: kill the intrinsic spin buttons that can push the field past the card edge */
   .tc-time::-webkit-inner-spin-button, .tc-time::-webkit-outer-spin-button {
