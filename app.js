@@ -652,9 +652,10 @@ const fmtClock = (m) => {
 const money = (r) => '$' + r.toFixed(2);
 
 // Full-day price schedule for a metered block: free before 9am, rate1 9am–6pm,
-// rate2 6pm–10pm, free after 10pm — with adjacent equal-price windows merged so a
-// flat all-day meter reads as one "9am–10pm" row instead of two identical ones.
-function daySegments(b) {
+// rate2 6pm–10pm, free after 10pm — with adjacent windows merged when their rate AND
+// time-limit match, so a flat all-day meter reads as one row but a meter whose limit
+// changes at 6pm (e.g. 2h → 4h) splits so each window can show its own "Max Nh".
+function daySegments(b, wknd) {
   const rushes = b.rushes || [];
   const rateAt = (m) => (m < ENF_START || m >= ENF_END) ? 0 : (m < MID ? (b.rate1 || 0) : (b.rate2 || 0));
   const towAt = (m) => rushes.some((r) => m >= r[0] && m < r[1]);
@@ -671,9 +672,10 @@ function daySegments(b) {
     const from = pts[i], to = pts[i + 1], mid = (from + to) / 2;
     const tow = towAt(mid);
     const rate = tow ? 0 : rateAt(mid);
+    const limit = (!tow && rate > 0) ? limitNow(b.limits, mid, wknd) : null;   // only paid windows carry a limit
     const last = segs[segs.length - 1];
-    if (last && last.tow === tow && last.rate === rate) last.to = to;
-    else segs.push({ from, to, rate, tow });
+    if (last && last.tow === tow && last.rate === rate && last.limit === limit) last.to = to;
+    else segs.push({ from, to, rate, tow, limit });
   }
   return segs;
 }
@@ -686,15 +688,15 @@ function segLabel(s) {
 
 function renderSchedule(b, mins) {
   const el = $('scsched');
-  const segs = daySegments(b);
+  const segs = daySegments(b, isWeekend());
   el.innerHTML = segs.map((s) => {
     const active = mins >= s.from && mins < s.to;
     const free = !s.tow && s.rate === 0;
     const cost = s.tow ? 'No parking' : (free ? 'Free' : `${money(s.rate)}/hr`);
-    // "Now" only when arrival IS now; a planned arrival labels its window with the time
-    const now = active ? `<span class="now">${trip.mode === 'now' ? 'Now' : fmtClock(mins)}</span>` : '';
+    // paid windows show their own max stay inline; the active row is marked by highlight alone
+    const lim = s.limit != null && s.limit !== Infinity ? ` <span class="lim">· Max ${fmtLimit(s.limit)}</span>` : '';
     return `<div class="seg ${s.tow ? 'tow' : ''} ${free ? 'free' : ''} ${active ? 'active' : ''}">` +
-      `<span class="when">${segLabel(s)}${now}</span><span class="cost">${cost}</span></div>`;
+      `<span class="when">${segLabel(s)}${lim}</span><span class="cost">${cost}</span></div>`;
   }).join('');
   el.hidden = false;
 }
@@ -755,14 +757,6 @@ function showSpotCard(b) {
 
   const rows = [];
   if (b.flat != null) rows.push(`${IC.dollar} ${money(b.flat)} flat evening rate`);
-  const lim = limitNow(b.limits, mins, isWeekend());
-  if (lim != null && lim !== Infinity) {
-    const eve = isWeekend() ? b.limits.wkndEve : b.limits.eve;
-    const flip = mins < MID && eve != null && eve !== lim && eve !== Infinity ? ` · ${fmtLimit(eve)} after 6pm` : '';
-    rows.push(`${IC.clock} Max stay <b>${fmtLimit(lim)}</b>${flip} while metered`);
-  } else if (lim === Infinity) {
-    rows.push(`${IC.clock} No time limit`);
-  }
   // the full-day schedule table already shows every tow-away window; this row is
   // only an urgency nudge when one is about to start (the table can be scrolled past)
   const tow = towSoon(b, mins, 90);
