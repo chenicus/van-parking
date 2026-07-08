@@ -305,6 +305,8 @@
     display: grid; place-items: center; }
   .chevwrap::before { content: ''; position: absolute; inset: 0; border-radius: 50%;
     background: rgba(0,0,0,.08); }
+  /* dark map is near-black, so the dark halo disappears — mirror it with a faint light circle */
+  :root[data-theme="dark"] .chevwrap::before { background: rgba(255,255,255,.16); }
   .chev { width: 22px; height: 26px; background: var(--accent);
     clip-path: polygon(50% 0, 100% 100%, 50% 78%, 0 100%);
     /* the arrow's centroid sits ~2px below its box center; nudge up so it's centered on
