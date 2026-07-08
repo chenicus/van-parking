@@ -370,6 +370,11 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('#recents') || e.target.closest('#searchform')) return;
   hideRecents();
 });
+document.addEventListener('click', (e) => {
+  if ($('tripcard').hidden) return;
+  if (e.target.closest('#tripcard') || e.target.closest('#tripPill')) return;
+  $('tripcard').hidden = true;
+}, true);
 $('rcList').addEventListener('click', (e) => {
   const del = e.target.closest('.rc-del');
   if (del) {
@@ -491,7 +496,19 @@ function syncTrip() {
   if (labelLayer) labelLayer.refresh();           // pills reflect the arrival rate window
   if (cardBlock) showSpotCard(cardBlock);         // spot card totals reflect arrival + duration
 }
-$('tripPill').addEventListener('click', () => { $('tripcard').hidden = !$('tripcard').hidden; requestAnimationFrame(moveSegInd); });
+// on the desktop row layout, anchor the dropdown under the pill instead of under the search bar
+function positionTripcard() {
+  const tc = $('tripcard');
+  if (window.innerWidth < 760) { tc.style.left = ''; tc.style.top = ''; return; }
+  const r = $('tripPill').getBoundingClientRect();
+  tc.style.left = `${Math.round(r.left)}px`;
+  tc.style.top = `${Math.round(r.bottom + 8)}px`;
+}
+$('tripPill').addEventListener('click', () => {
+  $('tripcard').hidden = !$('tripcard').hidden;
+  if (!$('tripcard').hidden) positionTripcard();
+  requestAnimationFrame(moveSegInd);
+});
 requestAnimationFrame(moveSegInd);   // initial highlight position
 $('tcClose').addEventListener('click', () => { $('tripcard').hidden = true; });
 $('tcArr').addEventListener('click', (e) => {
@@ -777,7 +794,22 @@ function showSpotCard(b) {
   $('spotcard').hidden = false;
   if (labelLayer) labelLayer.setSelected(b.id);
 }
-$('scclose').addEventListener('click', () => { $('spotcard').hidden = true; cardBlock = null; clearSpotLine(); closeReportList(); if (labelLayer) labelLayer.setSelected(null); });
+function closeSpotCard() {
+  $('spotcard').hidden = true; cardBlock = null; clearSpotLine(); closeReportList();
+  if (labelLayer) labelLayer.setSelected(null);
+}
+$('scclose').addEventListener('click', closeSpotCard);
+// tapping the already-selected pill again closes the card instead of re-opening it
+function tapBlock(b) {
+  if (!$('spotcard').hidden && cardBlock && cardBlock.id === b.id) { closeSpotCard(); return; }
+  showSpotCard(b);
+}
+// tapping anywhere else on the map (i.e. not a pill) closes the card too
+document.addEventListener('click', (e) => {
+  if ($('spotcard').hidden) return;
+  if (e.target.closest('#spotcard') || e.target.closest('.leaflet-marker-icon')) return;
+  closeSpotCard();
+}, true);
 
 // tap the summary line → slide the full report list in; back returns to the card
 $('scflag').addEventListener('click', () => { if (!$('scflag').hidden) $('reportlist').classList.add('open'); });
@@ -867,7 +899,7 @@ function updateRecenter() {
 
 function initLiveLabels() {
   blocks = buildBlocks(meters).concat(freeBlocks);
-  labelLayer = createLabelLayer(map, blocks, { nowMins, isWeekend, onTap: showSpotCard, flagState });
+  labelLayer = createLabelLayer(map, blocks, { nowMins, isWeekend, onTap: tapBlock, flagState });
   labelLayer.refresh();
   loadFlags();   // fetch crowd reports, then refresh pills to show warnings / hide 3+ flagged
   nav = createNav({ map });

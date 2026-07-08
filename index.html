@@ -28,7 +28,7 @@
     --sheet: rgba(255,255,255,.72); --sheet-solid: #ffffff; --sheet-strong: rgba(252,252,253,.95); --map-cover: #f2f2f7;
     --text: #000000; --muted: rgba(60,60,67,.6); --muted-strong: rgba(60,60,67,.85); --tertiary: rgba(60,60,67,.3);
     --line: rgba(60,60,67,.16); --line-strong: rgba(60,60,67,.29);
-    --chip: rgba(120,120,128,.12); --accent: #000000; --on-accent: #fff;
+    --chip: rgba(120,120,128,.12); --chip-sel: rgba(255,255,255,.87); --accent: #000000; --on-accent: #fff; --clock-filter: brightness(0);
     --navy: rgba(30,30,32,.86); --green: #34c759; --free: #2563eb; --sel: #000000; --pin: #1c1c1e; --pin-fg: #fff; --pin-stroke: #fff; --pin-shadow: drop-shadow(0 2px 3px rgba(0,0,0,.4));
     --grabber: rgba(60,60,67,.3); --seg-on: #ffffff; --stroke: rgba(0,0,0,.08); --plabel-ink: #fff; --chip-on-stroke: rgba(255,255,255,.22);
     --shadow: 0 4px 20px rgba(0,0,0,.14), 0 1px 3px rgba(0,0,0,.08);
@@ -46,7 +46,7 @@
     --sheet: rgba(30,30,32,.72); --sheet-solid: #1c1c1e; --sheet-strong: rgba(30,30,32,.94); --map-cover: #000000;
     --text: #ffffff; --muted: rgba(235,235,245,.6); --muted-strong: rgba(235,235,245,.82); --tertiary: rgba(235,235,245,.3);
     --line: rgba(84,84,88,.4); --line-strong: rgba(84,84,88,.65);
-    --chip: rgba(120,120,128,.24); --accent: #ffffff; --on-accent: #000000;
+    --chip: rgba(120,120,128,.24); --chip-sel: rgba(27,25,25,.87); --accent: #ffffff; --on-accent: #000000; --clock-filter: brightness(0) invert(1);
     --navy: rgba(20,20,22,.86); --green: #30d158; --free: #60a5fa; --sel: #ffffff; --pin: #f2f2f2; --pin-fg: #16181d; --pin-stroke: transparent; --pin-shadow: drop-shadow(0 0 2px rgba(255,255,255,.9)) drop-shadow(0 3px 5px rgba(0,0,0,.9));
     --grabber: rgba(235,235,245,.3); --seg-on: #636366;
     --shadow: 0 4px 22px rgba(0,0,0,.5), 0 1px 3px rgba(0,0,0,.4);
@@ -102,7 +102,7 @@
   }
 
   .searchbar { position: absolute; z-index: 500; top: calc(env(safe-area-inset-top, 0px) + 12px);
-    left: 16px; right: 78px; height: 46px; border-radius: 14px;
+    left: 16px; right: 72px; height: 48px; margin: 0; border-radius: 12px;
     box-shadow: var(--shadow); display: flex; align-items: center; padding: 0 6px 0 13px; gap: 8px;
     transition: box-shadow .2s ease, transform .2s ease; }
   .searchbar:focus-within { box-shadow: 0 8px 30px rgba(0,0,0,.18), 0 1px 3px rgba(0,0,0,.1); }
@@ -140,8 +140,8 @@
   .rc-item:active, .rs-reason:active, .sc-flag:active { transform: scale(.985); }
 
   /* recent destinations — drops under the searchbar when it's focused */
-  .recents { position: absolute; z-index: 600; left: 16px; right: 78px;
-    top: calc(env(safe-area-inset-top, 0px) + 66px); border-radius: 14px;
+  .recents { position: absolute; z-index: 600; left: 16px; right: 72px;
+    top: calc(env(safe-area-inset-top, 0px) + 68px); border-radius: 14px;
     box-shadow: var(--shadow); overflow: hidden; padding-bottom: 4px;
     display: block; transform-origin: top center; transform: translateY(0); opacity: 1;
     transition: opacity .18s ease, transform .18s cubic-bezier(.32,.72,0,1); }
@@ -168,36 +168,36 @@
     width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; }
   .rc-del:active { background: var(--chip); color: var(--text); }
   .drivebtn-top { position: absolute; z-index: 500; top: calc(env(safe-area-inset-top, 0px) + 12px);
-    right: 16px; width: 52px; height: 46px; border-radius: 14px;
+    right: 16px; width: 48px; height: 48px; border-radius: 12px;
     box-shadow: var(--shadow); border: 1px solid var(--stroke); display: grid; place-items: center;
     color: var(--accent); cursor: pointer; }
   .drivebtn-top:active { filter: brightness(.94); }
-  .chips { position: absolute; z-index: 500; top: calc(env(safe-area-inset-top, 0px) + 70px);
-    left: 16px; display: flex; gap: 6px; }
-  .chip { height: 32px; padding: 0 11px; border-radius: 11px; border: 1px solid var(--stroke);
+  .chips { position: absolute; z-index: 500; top: calc(env(safe-area-inset-top, 0px) + 68px);
+    left: 16px; display: flex; gap: 8px; }
+  .chip { height: 32px; padding: 0 11px; border-radius: 12px; border: 1px solid var(--stroke);
     color: var(--text); font-family: inherit; font-size: var(--fs-body); font-weight: 500; letter-spacing: -.2px;
     display: flex; align-items: center; gap: 6px; box-shadow: var(--shadow); cursor: pointer;
     transition: background .15s, color .15s, transform .13s cubic-bezier(.4,0,.2,1); }
   .chip:active { transform: scale(.93); }
-  .chip.on { background: var(--accent); color: var(--on-accent); border-color: var(--chip-on-stroke); box-shadow: var(--shadow); }
+  .chip.on { background: var(--chip-sel); color: var(--text); border-color: var(--stroke); box-shadow: var(--shadow); }
   .chip.on::before { display: none; }
   .chip svg { width: 1.1em; height: 1.1em; }
+  .chip .chk { width: 1em; height: 1em; margin-left: -2px; display: none; }
+  .chip.on .chk { display: block; }
 
   /* ---- trip pill (arrival) ---- */
   .chip.trip { gap: 5px; }
-  .chip.trip svg { color: var(--muted); }
+  .chip.trip svg { color: var(--text); }
   .tripcard { position: absolute; z-index: 520; top: calc(env(safe-area-inset-top, 0px) + 120px);
-    left: 16px; right: 16px; max-width: 360px; border-radius: 18px; box-shadow: var(--shadow);
+    left: 16px; right: 16px; max-width: 360px; border-radius: 12px; box-shadow: var(--shadow);
     padding: 16px;
     display: block; transform-origin: top left; opacity: 1; transform: translateY(0) scale(1);
     transition: opacity .2s ease, transform .2s cubic-bezier(.32,.72,0,1); }
   .tripcard[hidden] { opacity: 0; transform: translateY(-8px) scale(.98); visibility: hidden; pointer-events: none;
     transition: opacity .2s ease, transform .2s ease, visibility 0s .2s; }
-  .tc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-  .tc-head b { font-size: var(--fs-title); font-weight: 600; letter-spacing: -.4px; }
-  .tc-lbl { display: flex; align-items: center; gap: 6px; font-size: var(--fs-caption); font-weight: 500;
-    color: var(--muted); margin: 0 0 8px; }
-  .tc-lbl svg { width: 1.1em; height: 1.1em; stroke: var(--muted); }
+  .tc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .tc-head b { font-size: var(--fs-headline); font-weight: 600; letter-spacing: -.3px; }
+  .tc-head .iconbtn { margin: -10px -8px -10px 0; }
   .tc-seg { position: relative; display: flex; background: var(--chip); border-radius: 12px; padding: 3px; gap: 3px; }
   .tc-seg-ind { position: absolute; top: 3px; bottom: 3px; left: 0; width: 0; border-radius: 9px; z-index: 0;
     background: var(--seg-on); box-shadow: 0 1px 4px rgba(0,0,0,.16); pointer-events: none;
@@ -213,7 +213,7 @@
   /* iOS/Safari: kill the intrinsic spin buttons that can push the field past the card edge */
   .tc-time::-webkit-inner-spin-button, .tc-time::-webkit-outer-spin-button {
     -webkit-appearance: none; appearance: none; margin: 0; display: none; }
-  .tc-time::-webkit-calendar-picker-indicator { opacity: .5; margin: 0; }
+  .tc-time::-webkit-calendar-picker-indicator { opacity: 1; margin: 0; filter: var(--clock-filter); }
   .tc-time:focus, .tc-time:focus-visible { outline: none; }
   .tc-time::selection { background: var(--accent); color: var(--on-accent); }
   /* Chrome desktop: recolor the native blue field-highlight to our black accent,
@@ -302,7 +302,7 @@
   body.driving .drivebtn-top { background: var(--accent); color: var(--on-accent); }
   body.driving .drivebtn-top .ic-car { opacity: 0; transform: rotate(90deg); }
   body.driving .drivebtn-top .ic-x { opacity: 1; transform: rotate(0); }
-  .fab { position: absolute; z-index: 600; width: 52px; height: 52px; border-radius: 50%;
+  .fab { position: absolute; z-index: 600; width: 48px; height: 48px; border-radius: 50%;
     border: 1px solid var(--stroke); box-shadow: var(--shadow); display: grid; place-items: center;
     cursor: pointer; font-family: inherit;
     opacity: 0; transform: scale(.7); pointer-events: none;
@@ -311,24 +311,26 @@
   #recenter.show { opacity: 1; transform: scale(1); pointer-events: auto; }
   #recenter.show:active { transform: scale(.9); }
   body.driving #recenter { right: auto; left: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); }
-  /* during turn-by-turn, recenter + compass float as a right-side stack above the full-width ETA bar */
-  body.nav #recenter { left: auto; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 146px); }
+  /* during turn-by-turn, recenter + compass + theme toggle float as a right-side stack above the full-width ETA bar */
+  body.nav #recenter { left: auto; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 210px); }
   /* compass toggle — heading-up (POV) ⇄ north-up; only during turn-by-turn.
      The whole needle rotates by --map-rot so its red tip always points to true north. */
   #compass { position: absolute; z-index: 600; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 82px);
-    width: 52px; height: 52px; border-radius: 50%; border: 1px solid var(--stroke); box-shadow: var(--shadow);
+    width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--stroke); box-shadow: var(--shadow);
     display: none; place-items: center; color: var(--muted-strong); cursor: pointer; }
   body.nav #compass { display: grid; }
   #compass:active { filter: brightness(.94); }
   #compass svg { width: 26px; height: 26px; transform: rotate(var(--map-rot)); transition: transform .35s ease; }
-  /* theme toggle (light/dark) — bottom-left; glass background + hairline stroke from .mat,
-     consistent with the car button and the rest of the chrome. */
-  #themetoggle { position: absolute; z-index: 600; left: 16px;
+  /* theme toggle (light/dark) — always right-aligned with recenter/compass, so it moves straight
+     up the same column in drive/nav mode instead of jumping across the screen. */
+  #themetoggle { position: absolute; z-index: 600; right: 16px;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
-    width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--stroke); box-shadow: var(--shadow);
+    width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--stroke); box-shadow: var(--shadow);
     color: var(--text); display: grid; place-items: center; cursor: pointer; }
   #themetoggle svg { width: 22px; height: 22px; }
   #themetoggle:active { filter: brightness(.94); }
+  /* during turn-by-turn, sit directly above the compass toggle */
+  body.nav #themetoggle { bottom: calc(env(safe-area-inset-bottom, 0px) + 146px); }
 
   /* ---- turn-by-turn chrome ---- */
   #navbanner { position: absolute; z-index: 640; top: calc(env(safe-area-inset-top, 0px) + 12px);
@@ -482,19 +484,26 @@
   @keyframes toastIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 
   @media (min-width: 760px) {
-    .searchbar { width: 400px; right: auto; }
-    .drivebtn-top { left: 428px; right: auto; }
+    /* Google-Maps-style row: search bar, pills, then the drive-mode button pinned to the far
+       right — all sharing one flex row so they stay vertically aligned. */
+    .topbar { position: absolute; z-index: 500; top: calc(env(safe-area-inset-top, 0px) + 12px);
+      left: 16px; right: 16px; display: flex; align-items: center; gap: 8px; }
+    .topbar .searchbar, .topbar .chips, .topbar .drivebtn-top { position: static; flex: none; }
+    .searchbar { width: 360px; right: auto; }
+    .chips { display: flex; align-items: center; gap: 8px; }
+    .drivebtn-top { margin-left: auto; }
     #navbanner { width: 420px; right: auto; }
     .recents { width: 400px; right: auto; }
     #recenter { bottom: 18px; }
     .spotcard { left: auto; right: 16px; bottom: 16px; width: 380px; border-radius: 22px; }
     .rlpanel { left: auto; right: 16px; bottom: 16px; width: 380px; border-radius: 22px; max-height: 70vh; }
-    .tripcard { right: auto; width: 340px; }
+    .tripcard { right: auto; width: 340px; top: calc(env(safe-area-inset-top, 0px) + 68px); }
   }
 </style>
 
 <div id="maprot"><div id="map"></div></div>
 
+<div class="topbar">
 <form class="searchbar mat" id="searchform">
   <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>
   <span class="spin" aria-hidden="true"></span>
@@ -502,27 +511,26 @@
   <button class="iconbtn clearbtn" id="clearDest" type="button" aria-label="Clear destination" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   <button class="iconbtn" id="here" type="button" aria-label="Use my location"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="5" y1="12" y2="12"/><line x1="19" x2="22" y1="12" y2="12"/><line x1="12" x2="12" y1="2" y2="5"/><line x1="12" x2="12" y1="19" y2="22"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/></svg></button>
 </form>
-<div class="recents mat" id="recents" hidden>
-  <div class="rc-head" id="rcHead"><span>Recent</span><button type="button" id="rcClear">Clear all</button></div>
-  <div id="rcList"></div>
-</div>
-<button class="drivebtn-top mat" id="drivebtn" type="button" aria-label="Toggle driving mode"><svg class="ic-car" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 1 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg><svg class="ic-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-
 <div class="chips">
-  <button class="chip mat on" id="chipFree" type="button">Free</button>
-  <button class="chip mat on" id="chipPaid" type="button">Paid</button>
+  <button class="chip mat on" id="chipFree" type="button"><svg class="chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Free</button>
+  <button class="chip mat on" id="chipPaid" type="button"><svg class="chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Paid</button>
   <button class="chip trip mat" id="tripPill" type="button" aria-label="Set arrival time">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
     <span class="v" id="tpArr">Now</span>
   </button>
 </div>
+<button class="drivebtn-top mat" id="drivebtn" type="button" aria-label="Toggle driving mode"><svg class="ic-car" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 1 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg><svg class="ic-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+</div>
+<div class="recents mat" id="recents" hidden>
+  <div class="rc-head" id="rcHead"><span>Recent</span><button type="button" id="rcClear">Clear all</button></div>
+  <div id="rcList"></div>
+</div>
 
 <div class="tripcard mat" id="tripcard" hidden>
   <div class="tc-head">
-    <b>Trip</b>
+    <b>Arrival</b>
     <button class="iconbtn" id="tcClose" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </div>
-  <div class="tc-lbl"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Arrive</div>
   <div class="tc-seg" id="tcArr">
     <div class="tc-seg-ind" id="tcSegInd"></div>
     <button type="button" data-m="now" class="on">Now</button>
