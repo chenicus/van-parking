@@ -756,7 +756,7 @@ function showSpotCard(b) {
   if (lim != null && lim !== Infinity) {
     const eve = isWeekend() ? b.limits.wkndEve : b.limits.eve;
     const flip = mins < MID && eve != null && eve !== lim && eve !== Infinity ? ` · ${fmtLimit(eve)} after 6pm` : '';
-    rows.push(`${IC.clock} Max stay <b>${fmtLimit(lim)}</b>${flip}`);
+    rows.push(`${IC.clock} Max stay <b>${fmtLimit(lim)}</b>${flip} while metered`);
   } else if (lim === Infinity) {
     rows.push(`${IC.clock} No time limit`);
   }
