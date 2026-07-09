@@ -570,14 +570,16 @@ function setMapRot(deg) {
   contRot = deg;
   document.documentElement.style.setProperty('--map-rot', deg.toFixed(1) + 'deg');
 }
-// Called on nav start/end, each fix, and on compass toggle. Rotates the map to the
-// current heading in POV mode; snaps back to north otherwise. The oversized wrapper
-// spans the whole nav session (both orientations), so toggling the compass just
-// animates the rotation — a smooth POV swing. invalidateSize fires only when the
-// wrapper actually resizes (entering/leaving nav).
+// Called on drive/nav start/end, each fix, and on compass toggle. Rotates the map to
+// the current heading in POV mode; snaps back to north otherwise. Active whenever we're
+// following the car — Drive mode or turn-by-turn — so it survives nav auto-ending on
+// arrival (still driving → stays heading-up). The oversized wrapper spans the whole
+// follow session (both orientations), so toggling the compass just animates the rotation
+// — a smooth POV swing. invalidateSize fires only when the wrapper actually resizes
+// (entering/leaving the follow session).
 function applyOrientation() {
-  const inNav = document.body.classList.contains('nav');
-  const headingUp = inNav && orientMode === 'heading';
+  const active = document.body.classList.contains('nav') || document.body.classList.contains('driving');
+  const headingUp = active && orientMode === 'heading';
   document.body.classList.toggle('headingup', headingUp);
   if (headingUp) {
     const hdg = (driving && driving.lastPos() && driving.lastPos().hdg) || 0;
@@ -586,11 +588,11 @@ function applyOrientation() {
   } else {
     setMapRot(Math.round(contRot / 360) * 360);                 // nearest visual north
   }
-  if (navLayout !== inNav) {
-    navLayout = inNav;
-    // the wrapper just resized (CSS, entering/leaving nav). Suppress the --map-rot
-    // transition (on <html>) for this switch so the map doesn't spin on nav start/end,
-    // then force layout, tell Leaflet, and re-center the car in the oversized square.
+  if (navLayout !== active) {
+    navLayout = active;
+    // the wrapper just resized (CSS, entering/leaving the follow session). Suppress the
+    // --map-rot transition (on <html>) for this switch so the map doesn't spin on
+    // start/end, then force layout, tell Leaflet, and re-center the car in the oversized square.
     const de = document.documentElement;
     de.style.transition = 'none';
     void de.offsetWidth;
@@ -925,6 +927,8 @@ function initLiveLabels() {
     onFix(pos) {
       labelLayer.setFocus(pos);
       if (nav.isActive()) onNavFix(pos);
+      else applyOrientation();          // Drive mode: keep the map pointed heading-up
+
       // auto-dismiss the card only once you've driven PAST its block —
       // never while approaching a spot you tapped up ahead
       if (cardBlock) {
@@ -938,6 +942,7 @@ function initLiveLabels() {
     onActiveChange(state) {
       document.body.classList.toggle('driving', !!state);
       if (state === 'nolock') toast('Keep your screen on — this browser can\'t hold a wake lock.');
+      applyOrientation();               // Drive mode on → heading-up + compass; off → un-rotate
       updateRecenter();
       labelLayer.refresh();
     },

@@ -320,12 +320,12 @@
   body.driving #recenter { right: auto; left: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); }
   /* during turn-by-turn, recenter + compass + theme toggle float as a right-side stack above the full-width ETA bar */
   body.nav #recenter { left: auto; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 210px); }
-  /* compass toggle — heading-up (POV) ⇄ north-up; only during turn-by-turn.
+  /* compass toggle — heading-up (POV) ⇄ north-up; shown in Drive mode and turn-by-turn.
      The whole needle rotates by --map-rot so its red tip always points to true north. */
   #compass { position: absolute; z-index: 600; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 82px);
     width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--stroke); box-shadow: var(--shadow);
     display: none; place-items: center; color: var(--muted-strong); cursor: pointer; }
-  body.nav #compass { display: grid; }
+  body.nav #compass, body.driving #compass { display: grid; }
   #compass:active { filter: brightness(.94); }
   #compass svg { width: 26px; height: 26px; transform: rotate(var(--map-rot)); transition: transform .35s ease; }
   /* theme toggle (light/dark) — always right-aligned with recenter/compass, so it moves straight
@@ -373,8 +373,8 @@
     transition: transform .36s cubic-bezier(.32,.72,0,1); }
   .spotcard[hidden] { transform: translateY(110%); visibility: hidden; pointer-events: none;
     transition: transform .36s cubic-bezier(.32,.72,0,1), visibility 0s .36s; }
-  body.driving .spotcard { bottom: calc(env(safe-area-inset-bottom, 0px) + 78px);
-    left: 10px; right: 10px; border-radius: 22px; }
+  /* drive mode uses the same bottom-anchored sheet as browsing — while it's open it
+     covers the map chrome (recenter / compass / theme toggle), which return on close */
   .sc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
   .sc-tools { flex: none; display: flex; align-items: center; gap: 2px; margin: -6px 0 0 0; }
   .iconbtn.mini { width: 34px; height: 34px; color: var(--muted-strong); }
@@ -730,7 +730,7 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
-<script type="module" src="app.js?v=28"></script>
+<script type="module" src="app.js?v=29"></script>
 
 <!-- Cloudflare Web Analytics — privacy-friendly visitor + country tracking, no cookies -->
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js"
