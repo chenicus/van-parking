@@ -225,6 +225,7 @@ export function createLabelLayer(map, blocks, { nowMins, isWeekend, onTap, flagS
       if (!want.has(sig)) { map.removeLayer(mk); pillCache.delete(sig); }
     }
     pillByBlock.clear();
+    let dropN = 0;   // staggered-entrance index among pills newly created this refresh (nearest first — `desired` is distance-sorted)
     for (const d of desired) {
       let mk = pillCache.get(d.sig);
       if (!mk) {
@@ -237,6 +238,17 @@ export function createLabelLayer(map, blocks, { nowMins, isWeekend, onTap, flagS
         if (d.block) mk.on('click', () => onTap(d.block));
         // area chip → zoom in so its individual block pills appear
         else if (d.cluster) mk.on('click', () => map.setView([d.lat, d.lon], 16, { animate: true }));
+        // pop the new pill in with a small nearest-first stagger (25ms step, capped so a
+        // big batch never drags on). Cached pills that merely re-appear on pan don't re-run.
+        const pill = mk.getElement()?.firstElementChild;
+        if (pill) {
+          pill.style.animationDelay = Math.min(dropN, 14) * 25 + 'ms';
+          pill.classList.add('in');
+          // drop the class once it lands so a later selection can spring cleanly
+          // (both .in and .sel set `animation`; a lingering .in would win the cascade)
+          pill.addEventListener('animationend', () => pill.classList.remove('in'), { once: true });
+          dropN++;
+        }
         pillCache.set(d.sig, mk);
       }
       if (d.block) pillByBlock.set(d.block.id, mk);

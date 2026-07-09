@@ -1,5 +1,5 @@
 import { rankMeters, rateNow, limitNow, distMeters, ENF_START, MID, ENF_END } from './rank.js?v=13';
-import { buildBlocks, createLabelLayer, towSoon, fmtLimit, bucket } from './labels.js?v=14';
+import { buildBlocks, createLabelLayer, towSoon, fmtLimit, bucket } from './labels.js?v=16';
 import { createDriving, SIM_START } from './driving.js?v=13';
 import { fetchRoute, createNav, fmtDist } from './nav.js?v=13';
 import { fetchFlags, submitReport, rptKey, FLAG_MIN, HIDE_MIN } from './reports.js?v=1';
@@ -98,10 +98,24 @@ applyTheme(localStorage.getItem(THEME_KEY) || (darkMedia.matches ? 'dark' : 'lig
 darkMedia.addEventListener('change', () => {
   if (!localStorage.getItem(THEME_KEY)) applyTheme(darkMedia.matches ? 'dark' : 'light');
 });
-document.getElementById('themetoggle')?.addEventListener('click', () => {
+document.getElementById('themetoggle')?.addEventListener('click', (e) => {
   const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-  localStorage.setItem(THEME_KEY, next);
-  applyTheme(next);
+  const swap = () => { localStorage.setItem(THEME_KEY, next); applyTheme(next); };
+
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Circular wipe from the button's center; falls back to an instant swap where
+  // the View Transitions API is unavailable (older Safari/Firefox) or motion is off.
+  if (!document.startViewTransition || reduce) { swap(); return; }
+
+  const r = e.currentTarget.getBoundingClientRect();
+  const x = r.left + r.width / 2, y = r.top + r.height / 2;
+  const end = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+  document.startViewTransition(swap).ready.then(() => {
+    document.documentElement.animate(
+      { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${end}px at ${x}px ${y}px)`] },
+      { duration: 500, easing: 'cubic-bezier(.36,.66,.3,1)', pseudoElement: '::view-transition-new(root)' }
+    );
+  });
 });
 
 // free-parking blocks derived from enforcement data (build-free.py) → pseudo-blocks
@@ -444,11 +458,11 @@ function frameMap(loc, list) {
   let dLat = 0.0016, dLon = 0.0022;
   for (const r of near) { dLat = Math.max(dLat, Math.abs(r.lat - loc.lat)); dLon = Math.max(dLon, Math.abs(r.lon - loc.lon)); }
   const bounds = [[loc.lat - dLat, loc.lon - dLon], [loc.lat + dLat, loc.lon + dLon]];
-  map.fitBounds(bounds, {
-    paddingTopLeft: [40, 120],
-    paddingBottomRight: [40, 40],
-    maxZoom: 17, animate: false,
-  });
+  const opts = { paddingTopLeft: [40, 120], paddingBottomRight: [40, 40], maxZoom: 17 };
+  // Ease into the destination instead of snapping; pills then drop in on moveend for a
+  // clean arrival. Reduced-motion users get the old instant framing.
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) map.fitBounds(bounds, { ...opts, animate: false });
+  else map.flyToBounds(bounds, { ...opts, duration: 0.9 });
 }
 
 // ---- misc controls ----------------------------------------------------------
@@ -919,6 +933,9 @@ function initLiveLabels() {
   blocks = buildBlocks(meters).concat(freeBlocks);
   labelLayer = createLabelLayer(map, blocks, { nowMins, isWeekend, onTap: tapBlock, flagState });
   labelLayer.refresh();
+  // real pills are on the map now — fade the boot skeleton out and drop it
+  const skel = $('skel');
+  if (skel) { skel.classList.add('hide'); setTimeout(() => skel.remove(), 600); }
   loadFlags();   // fetch crowd reports, then refresh pills to show warnings / hide 3+ flagged
   nav = createNav({ map });
 
