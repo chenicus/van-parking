@@ -9,8 +9,53 @@
 // at cluster time; blocks inside an active tow-away rush window are hidden.
 import {
   parseMoney, parseTimeLimit, parseRange, distMeters,
-  rateNow, limitNow, inRange,
-} from './rank.js?v=11';
+  rateNow, limitNow, bandRateNow, inRange,
+} from './rank.js?v=14';
+
+// Seattle prices by blockface (a line + a midpoint), not per-meter points. Each record
+// is already one "block"; we reuse the whole pill/declutter/zoom machinery but draw a
+// polyline instead of meter dots, and price it from time-of-day bands (see rateFor).
+export function buildSeattleBlocks(records, idBase = 2e6) {
+  return records.map((o, i) => ({
+    id: idBase + i,
+    lat: o.mid[1], lon: o.mid[0],                      // midpoint: pill anchor + distance
+    line: o.line.map(([lon, lat]) => [lat, lon]),      // GeoJSON [lon,lat] → Leaflet [lat,lon]
+    bands: { wkd: o.wkd, sat: o.sat, sun: o.sun },
+    limitMin: o.limit || null,
+    cat: o.cat, spaces: o.spaces, hblock: o.h,
+    pts: [], rushes: [], card: false,                  // no meter dots / rush windows in Seattle
+  }));
+}
+
+const EMPTY_BANDS = { wkd: [], sat: [], sun: [] };   // always-free blockface (no paid hours)
+
+// Seattle's free layer: unrestricted (free, unlimited) + time-limited (free, capped).
+// No rate bands, so they read as free at every hour. Unrestricted blocks are line-only
+// (noPill) — 30k "$0" pills would bury the map; the blue line already says "free here".
+export function buildSeattleFreeBlocks(records, idBase = 3e6) {
+  return records.map((o, i) => ({
+    id: idBase + i,
+    lat: o.mid[1], lon: o.mid[0],
+    line: o.line.map(([lon, lat]) => [lat, lon]),
+    bands: EMPTY_BANDS,
+    freeLimit: o.cat === 'tl' ? (o.limit || null) : null,   // time-limited: free but capped
+    noPill: o.cat !== 'tl',                                  // unrestricted: draw the line, skip the pill
+    cat: o.cat, spaces: o.spaces, hblock: o.h,
+    pts: [], rushes: [], card: false,
+  }));
+}
+
+// Current rate for a block, dispatching on shape: Seattle blockfaces carry `bands`,
+// Vancouver meters/free carry rate1/rate2.
+function rateFor(bl, mins, dow) {
+  return bl.bands ? bandRateNow(bl.bands, mins, dow) : rateNow(bl.rate1, bl.rate2, mins);
+}
+function limitFor(bl, mins, dow, wknd) {
+  if (bl.bands) {   // Seattle: paid limit while metered; free-but-capped (time-limited) otherwise
+    return rateFor(bl, mins, dow).free ? (bl.freeLimit || null) : bl.limitMin;
+  }
+  return limitNow(bl.limits, mins, wknd);
+}
 
 const JOIN_M = 45;                 // meters sharing a tuple within this join one block face
 const CELL_LAT = 0.00045, CELL_LON = 0.00065;   // ~50 m spatial hash
@@ -80,7 +125,8 @@ export const fmtLimit = (l) => l == null || l === Infinity ? '' : (l >= 60 ? (l 
 export const bucket = (rate, free) =>
   free ? 'p-free' : rate <= 2 ? 'p1' : rate <= 4 ? 'p2' : rate <= 6 ? 'p3' : 'p4';
 
-export function createLabelLayer(map, blocks, { nowMins, isWeekend, onTap, flagState }) {
+export function createLabelLayer(map, blocks, { nowMins, isWeekend, dow, onTap, flagState }) {
+  const dowNow = dow || (() => new Date().getDay());
   // flagState(block) -> { flagged, hidden } from crowd reports; default: no flags.
   const flags = flagState || (() => ({}));
   map.createPane('mdots').style.zIndex = 610;
@@ -120,7 +166,7 @@ export function createLabelLayer(map, blocks, { nowMins, isWeekend, onTap, flagS
       !flags(bl).hidden);   // 3+ reports → gone from pills, dots and cluster minimums alike
   }
 
-  function pillDesired(z, mins, wknd) {
+  function pillDesired(z, mins, wknd, dow) {
     const vis = visibleActive(mins);
     const ctr = focus || map.getCenter();
     const ctrLat = ctr.lat, ctrLon = ctr.lng != null ? ctr.lng : ctr.lon;
@@ -133,7 +179,7 @@ export function createLabelLayer(map, blocks, { nowMins, isWeekend, onTap, flagS
       const cells = new Map();
       for (const bl of vis) {
         const ck = Math.floor(bl.lat / 0.0072) + ',' + Math.floor(bl.lon / 0.011);
-        const r = rateNow(bl.rate1, bl.rate2, mins);
+        const r = rateFor(bl, mins, dow);
         if (!keep(r.free)) continue;
         let c = cells.get(ck);
         if (!c) { c = { nFree: 0, nPaid: 0, minPaid: Infinity, lat: bl.lat, lon: bl.lon }; cells.set(ck, c); }
@@ -166,9 +212,9 @@ export function createLabelLayer(map, blocks, { nowMins, isWeekend, onTap, flagS
       return kept;
     }
 
-    const items = vis.map((bl) => {
-      const r = rateNow(bl.rate1, bl.rate2, mins);
-      const lim = z >= 16 ? limitNow(bl.limits, mins, wknd) : null;
+    const items = vis.filter((bl) => !bl.noPill).map((bl) => {   // free streets: line only, no pill
+      const r = rateFor(bl, mins, dow);
+      const lim = z >= 16 ? limitFor(bl, mins, dow, wknd) : null;
       const limTxt = lim != null && lim !== Infinity ? ' · ' + fmtLimit(lim) : '';
       const price = r.free ? '$0' : fmtRate(r.rate);
       const text = price + limTxt;
@@ -195,21 +241,30 @@ export function createLabelLayer(map, blocks, { nowMins, isWeekend, onTap, flagS
     return kept;
   }
 
-  function refreshDots(z, mins) {
+  function refreshDots(z, mins, dow) {
     if (dotGroup) { map.removeLayer(dotGroup); dotGroup = null; }
     if (z < 11) return;
     const op = z >= 16 ? 0.9 : z >= 15 ? 0.4 : 0.6;
     const rad = z >= 16 ? 3.5 : z >= 15 ? 2.5 : 3;
+    const lw = z >= 16 ? 5 : z >= 14 ? 4 : 3;                 // blockface line weight by zoom
+    const lineOp = z >= 16 ? 0.5 : z >= 14 ? 0.42 : 0.35;    // soft heatmap — the pills carry the price
     const marks = [];
     for (const bl of visibleActive(mins)) {
-      const r = rateNow(bl.rate1, bl.rate2, mins);
+      const r = rateFor(bl, mins, dow);
       if (!keep(r.free)) continue;
       const col = { 'p-free': '#2563eb', p1: '#16a34a', p2: '#d97706', p3: '#ea580c', p4: '#dc2626' }[bucket(r.rate, r.free)];
-      const pts = bl.pts.length ? bl.pts : [[bl.lat, bl.lon]];   // free blocks have no meter points
-      for (const [la, lo] of pts) {
-        marks.push(L.circleMarker([la, lo], {
-          renderer: canvas, radius: rad, stroke: false, fillColor: col, fillOpacity: op, interactive: false,
+      if (bl.line) {   // Seattle blockface — draw the side of the street, colored by rate
+        marks.push(L.polyline(bl.line, {
+          renderer: canvas, color: col, weight: lw, opacity: lineOp,
+          lineCap: 'round', interactive: false,
         }));
+      } else {
+        const pts = bl.pts.length ? bl.pts : [[bl.lat, bl.lon]];   // free blocks have no meter points
+        for (const [la, lo] of pts) {
+          marks.push(L.circleMarker([la, lo], {
+            renderer: canvas, radius: rad, stroke: false, fillColor: col, fillOpacity: op, interactive: false,
+          }));
+        }
       }
     }
     dotGroup = L.layerGroup(marks).addTo(map);
@@ -218,8 +273,8 @@ export function createLabelLayer(map, blocks, { nowMins, isWeekend, onTap, flagS
   function refresh() {
     const t0 = performance.now();
     const z = map.getZoom();
-    const mins = nowMins(), wknd = isWeekend();
-    const desired = z >= 13 ? pillDesired(z, mins, wknd) : [];
+    const mins = nowMins(), wknd = isWeekend(), dw = dowNow();
+    const desired = z >= 13 ? pillDesired(z, mins, wknd, dw) : [];
 
     const want = new Set(desired.map((d) => d.sig));
     for (const [sig, mk] of pillCache) {
@@ -255,7 +310,7 @@ export function createLabelLayer(map, blocks, { nowMins, isWeekend, onTap, flagS
       }
       if (d.block) pillByBlock.set(d.block.id, mk);
     }
-    refreshDots(z, mins);
+    refreshDots(z, mins, dw);
     applySel();
     firstPaint = false;             // cold load done — every later refresh renders pills instantly
     layer.lastRefreshMs = performance.now() - t0;

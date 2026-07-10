@@ -80,6 +80,15 @@ export function limitNow(limits, mins, weekend) {
   return weekend ? (day ? limits.wkndDay : limits.wkndEve) : (day ? limits.day : limits.eve);
 }
 
+// Seattle blockface pricing: rate comes from the active time-of-day band for today's
+// day-of-week (dow: 0=Sun … 6=Sat). Free whenever no band covers `mins` — all of Sunday
+// (Seattle publishes no Sunday bands), evenings after the last band, early mornings.
+export function bandRateNow(bands, mins, dow) {
+  const arr = (dow === 0 ? bands.sun : dow === 6 ? bands.sat : bands.wkd) || [];
+  for (const b of arr) if (mins >= b.s && mins < b.e) return { rate: b.r, free: !b.r };
+  return { rate: 0, free: true };
+}
+
 // Is `mins` inside a parsed [start, end) range?
 export function inRange(range, mins) {
   return range != null && mins >= range[0] && mins < range[1];

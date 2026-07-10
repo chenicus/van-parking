@@ -1,6 +1,7 @@
-import { rankMeters, rateNow, limitNow, distMeters, ENF_START, MID, ENF_END } from './rank.js?v=13';
-import { buildBlocks, createLabelLayer, towSoon, fmtLimit, bucket } from './labels.js?v=19';
-import { createDriving, SIM_START } from './driving.js?v=22';
+import { rankMeters, rateNow, limitNow, bandRateNow, distMeters, ENF_START, MID, ENF_END } from './rank.js?v=14';
+import { buildBlocks, buildSeattleBlocks, buildSeattleFreeBlocks, createLabelLayer, towSoon, fmtLimit, bucket } from './labels.js?v=22';
+import { CITIES, cityAt, DEFAULT_CITY } from './cities.js?v=3';
+import { createDriving, SIM_START } from './driving.js?v=23';
 import { fetchRoute, createNav, fmtDist } from './nav.js?v=13';
 import { fetchFlags, submitReport, rptKey, FLAG_MIN, HIDE_MIN } from './reports.js?v=1';
 
@@ -45,6 +46,17 @@ function isWeekend() {
     return day === 0 || day === 6;
   }
   const day = new Date().getDay(); return day === 0 || day === 6;
+}
+// Day-of-week for Seattle's per-day rate bands (0=Sun … 6=Sat). ?dow=N overrides for
+// testing (e.g. ?dow=0 to see Sunday's free-everywhere), ?wknd=1 stands in for Saturday.
+function dowNow() {
+  if (params.get('dow') != null) return +params.get('dow');
+  if (params.get('wknd')) return 6;
+  if (trip.mode === 'set' && trip.setDate) {
+    const [y, m, d] = trip.setDate.split('-').map(Number);
+    return new Date(y, m - 1, d).getDay();
+  }
+  return new Date().getDay();
 }
 
 const darkMedia = window.matchMedia('(prefers-color-scheme: dark)');
@@ -136,21 +148,52 @@ function buildFreeBlocks(arr) {
   }));
 }
 
-Promise.all([
-  fetch('data/meters.json').then((r) => r.json()),
-  fetch('data/free.json').then((r) => r.json()).catch(() => []),
-])
-  .then(([m, f]) => {
-    meters = m;
-    freeBlocks = buildFreeBlocks(f);
-    initLiveLabels();
-    if (params.get('lat') && params.get('lon')) {
-      run({ lat: +params.get('lat'), lon: +params.get('lon'), name: params.get('dest') || 'Dropped pin' }, true);
-    } else if (params.get('dest')) {
-      run(null, true);
-    }
-  })
-  .catch(() => setStatus('Failed to load meter data. Run ./refresh.sh'));
+// Multi-city: the current city is whichever CITIES bounds contain the map center. We
+// lazy-load a city's feeds the first time you're there (on open via geolocation, or on
+// pan/search into it), pushing its blocks into the shared `blocks` array.
+let activeCity = DEFAULT_CITY;
+const loadedCities = new Set();
+function pushBlocks(arr) { for (const b of arr) blocks.push(b); }
+
+async function loadCity(key) {
+  if (loadedCities.has(key)) return;
+  loadedCities.add(key);
+  const c = CITIES[key];
+  try {
+    const feeds = await Promise.all(c.data.map((d) => fetch(d.url).then((r) => r.json()).catch(() => [])));
+    c.data.forEach((d, i) => {
+      const data = feeds[i] || [];
+      if (d.kind === 'meters') { meters = data; pushBlocks(buildBlocks(data)); }
+      else if (d.kind === 'free') { freeBlocks = buildFreeBlocks(data); pushBlocks(freeBlocks); }
+      else if (d.kind === 'seattle') { pushBlocks(buildSeattleBlocks(data)); }
+      else if (d.kind === 'seattle-free') { pushBlocks(buildSeattleFreeBlocks(data)); }
+    });
+    if (!labelLayer) initLiveLabels();          // first city: stand up the whole layer
+    else labelLayer.refresh();                  // later cities: just repaint
+  } catch { loadedCities.delete(key); setStatus('Failed to load parking data.'); }
+}
+
+// Pick the opening city from geolocation (fallback: default), center there, load it.
+(async () => {
+  let key = DEFAULT_CITY, center = null;
+  if (params.get('lat') && params.get('lon')) {
+    center = { lat: +params.get('lat'), lon: +params.get('lon') };
+    key = cityAt(center.lat, center.lon) || DEFAULT_CITY;
+  } else {
+    const pos = await getPosition().catch(() => null);
+    const k = pos && cityAt(pos.lat, pos.lon);
+    if (k) { key = k; center = pos; }
+  }
+  activeCity = key;
+  const c = CITIES[key];
+  map.setView(center ? [center.lat, center.lon] : c.center, center ? 16 : c.zoom, { animate: false });
+  await loadCity(key);
+  if (params.get('lat') && params.get('lon')) {
+    run({ lat: +params.get('lat'), lon: +params.get('lon'), name: params.get('dest') || 'Dropped pin' }, true);
+  } else if (params.get('dest')) {
+    run(null, true);
+  }
+})();
 
 function setStatus(msg) { toast(msg, 4000); }
 
@@ -166,20 +209,30 @@ function getPosition() {
   });
 }
 // ---- geocode ----------------------------------------------------------------
-async function geocodeOne(q) {
-  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ca&q=${encodeURIComponent(q + ', Vancouver, BC')}`;
-  const r = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+// Search spans every covered country; the city you're looking at is a *bias* (viewbox),
+// not a filter — so a bare "Main St" resolves locally, but "gum wall seattle" still jumps
+// to Seattle even while you're viewing Vancouver.
+const GEO_CCS = [...new Set(Object.values(CITIES).map((c) => c.geo.cc))].join(',');
+async function geocodeOne(q, biased) {
+  const p = new URLSearchParams({ format: 'json', limit: '1', countrycodes: GEO_CCS, q });
+  if (biased) {
+    const [[s, w], [n, e]] = (CITIES[activeCity] || CITIES[DEFAULT_CITY]).bounds;
+    p.set('viewbox', `${w},${s},${e},${n}`);   // soft bias toward the current city (bounded=0)
+  }
+  const r = await fetch('https://nominatim.openstreetmap.org/search?' + p.toString(), { headers: { 'Accept-Language': 'en' } });
   // Nominatim is a free shared server; under load it returns 429/503. Flag those
   // as `busy` so run() can tell "server rate-limited us" from "place not found".
   if (!r.ok) { const e = new Error('geocode ' + r.status); e.busy = r.status === 429 || r.status === 503; throw e; }
   const j = await r.json();
   return j.length ? { lat: parseFloat(j[0].lat), lon: parseFloat(j[0].lon), name: j[0].display_name } : null;
 }
+// Try local-biased first, then widen to any covered city if that finds nothing.
+async function geocodeWide(q) { return (await geocodeOne(q, true)) || geocodeOne(q, false); }
 async function geocode(q) {
-  let loc = await geocodeOne(q);
+  let loc = await geocodeWide(q);
   if (!loc && /\s(&|and|at|@|\/|x)\s|\s?&\s?/i.test(q)) {
     const first = q.split(/\s*(?:&|@|\/|\bat\b|\band\b|\bx\b)\s*/i)[0].trim();
-    if (first) loc = await geocodeOne(first);
+    if (first) loc = await geocodeWide(first);
   }
   return loc;
 }
@@ -329,10 +382,10 @@ function showRecents() { suggestSeq++; if (renderRecents()) $('recents').hidden 
 function hideRecents() { $('recents').hidden = true; }
 
 // ---- live suggestions (autocomplete) ----------------------------------------
-// As you type, query Photon (komoot's autocomplete geocoder — CORS-enabled, biased
-// to Vancouver) and list matches in the same panel. Each match already carries its
-// coordinates, so picking one searches directly with no second geocode.
-const SUG_BBOX = '-123.35,49.0,-122.4,49.4';   // metro Vancouver, keeps results local
+// As you type, query Photon (komoot's autocomplete geocoder — CORS-enabled) and list
+// matches in the same panel. Each match already carries its coordinates, so picking one
+// searches directly with no second geocode. We bias to the map center (not a hard bbox)
+// so local streets rank first while an explicit "gum wall seattle" still surfaces.
 let suggestSeq = 0, suggestTimer = null, suggestItems = [];
 
 function featToSuggest(f) {
@@ -360,9 +413,9 @@ function renderSuggest(items) {
 
 async function fetchSuggest(q) {
   const seq = ++suggestSeq;
-  const bias = cachedPos || { lat: 49.2606, lon: -123.114 };
-  const url = `https://photon.komoot.io/api/?limit=6&lang=en&bbox=${SUG_BBOX}` +
-    `&lat=${bias.lat}&lon=${bias.lon}&q=${encodeURIComponent(q)}`;
+  const ctr = map.getCenter();   // bias toward where you're looking, no hard boundary
+  const url = `https://photon.komoot.io/api/?limit=6&lang=en` +
+    `&lat=${ctr.lat}&lon=${ctr.lng}&q=${encodeURIComponent(q)}`;
   let feats;
   try { feats = (await fetch(url).then((r) => r.json())).features || []; }
   catch { return; }                       // network hiccup — leave the panel as-is
@@ -441,7 +494,10 @@ async function resolveEta(loc) {
 function rankAndRender(loc) {
   const arrival = nowMins();
   const duration = durationMins(), maxWalkMin = 10;
-  const ranked = rankMeters(meters, { lat: loc.lat, lon: loc.lon, arrival, duration, maxWalkMin, sort: 'cheap' });
+  // Meter-ranking (walk-cost, spot suggestions) is Vancouver-only for now — it reads the
+  // point-meter feed. In line-style cities we just frame on the destination.
+  const rankable = CITIES[activeCity] && CITIES[activeCity].style === 'points' && meters.length;
+  const ranked = rankable ? rankMeters(meters, { lat: loc.lat, lon: loc.lon, arrival, duration, maxWalkMin, sort: 'cheap' }) : [];
   current = ranked.slice(0, 40);   // kept only to frame the map around nearby spots
 
   if (labelLayer) labelLayer.setSelected(null);
@@ -741,7 +797,26 @@ function daySegments(b, wknd) {
   return segs;
 }
 
+// Seattle blockface schedule for today: paid inside each rate band, free in the gaps
+// (before the first band, between bands, after the last — and all day Sunday). Free-but-
+// time-limited blocks (no bands) collapse to one free row carrying the cap.
+function seattleDaySegments(b, dow) {
+  const arr = [...((dow === 0 ? b.bands.sun : dow === 6 ? b.bands.sat : b.bands.wkd) || [])]
+    .sort((x, y) => x.s - y.s);
+  const segs = [];
+  let cursor = 0;
+  for (const bd of arr) {
+    if (bd.s > cursor) segs.push({ from: cursor, to: bd.s, rate: 0, limit: null });
+    segs.push({ from: bd.s, to: bd.e, rate: bd.r, limit: bd.r ? b.limitMin : null });
+    cursor = bd.e;
+  }
+  if (cursor < 1440) segs.push({ from: cursor, to: 1440, rate: 0, limit: b.freeLimit || null });
+  if (!segs.length) segs.push({ from: 0, to: 1440, rate: 0, limit: b.freeLimit || null });
+  return segs;
+}
+
 function segLabel(s) {
+  if (s.from === 0 && s.to === 1440) return 'All day';
   if (s.from === 0) return 'Before ' + fmtClock(s.to);
   if (s.to === 1440) return 'After ' + fmtClock(s.from);
   return fmtClock(s.from) + '–' + fmtClock(s.to);
@@ -749,7 +824,7 @@ function segLabel(s) {
 
 function renderSchedule(b, mins) {
   const el = $('scsched');
-  const segs = daySegments(b, isWeekend());
+  const segs = b.bands ? seattleDaySegments(b, dowNow()) : daySegments(b, isWeekend());
   el.innerHTML = segs.map((s) => {
     const active = mins >= s.from && mins < s.to;
     const free = !s.tow && s.rate === 0;
@@ -809,7 +884,7 @@ function showSpotCard(b) {
     return;
   }
 
-  const r = rateNow(b.rate1, b.rate2, mins);
+  const r = b.bands ? bandRateNow(b.bands, mins, dowNow()) : rateNow(b.rate1, b.rate2, mins);
   $('scprice').innerHTML = r.free ? 'Free right now' : `${money(r.rate)}<span class="sc-unit">/hr</span>`;
   $('scprice').classList.toggle('free', r.free);
 
@@ -944,9 +1019,16 @@ function updateRecenter() {
 }
 
 function initLiveLabels() {
-  blocks = buildBlocks(meters).concat(freeBlocks);
-  labelLayer = createLabelLayer(map, blocks, { nowMins, isWeekend, onTap: tapBlock, flagState });
+  // `blocks` is already populated by loadCity (and grows as more cities load).
+  labelLayer = createLabelLayer(map, blocks, { nowMins, isWeekend, dow: dowNow, onTap: tapBlock, flagState });
   labelLayer.refresh();
+  // Lazy-load a city's data the moment the map center enters its coverage box.
+  map.on('moveend', () => {
+    const ctr = map.getCenter();
+    const k = cityAt(ctr.lat, ctr.lng);
+    if (k && !loadedCities.has(k)) loadCity(k);
+    if (k) activeCity = k;
+  });
   // real pills are on the map now — fade the boot skeleton out and drop it
   const skel = $('skel');
   if (skel) { skel.classList.add('hide'); setTimeout(() => skel.remove(), 600); }

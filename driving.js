@@ -94,6 +94,7 @@ export function createDriving({ map, onFix, onActiveChange, onFollowChange }) {
   let disp = null, rafId = null, lastFrame = 0, lastFixT = null;
   let vLat = 0, vLon = 0;   // velocity estimate (deg/s), smoothed across fixes
   let cLat = 0, cLon = 0;   // outstanding position correction, bled into disp over TC_CORR
+  let zooming = false;      // a pinch/wheel zoom is in flight — pause re-centering, don't fight it
 
   function render(now) {
     rafId = null;
@@ -106,14 +107,19 @@ export function createDriving({ map, onFix, onActiveChange, onFollowChange }) {
     disp.lat += cLat * bleed; cLat -= cLat * bleed;
     disp.lon += cLon * bleed; cLon -= cLon * bleed;
     chev.setLatLng([disp.lat, disp.lon]);
-    if (follow) {
+    if (follow && !zooming) {
       // Center Leaflet on the car (it rounds its tile origin to whole pixels — crisp but stepped),
       // then read where the car actually lands ON SCREEN and shift the whole wrapper by the
       // leftover fraction so the scene glides between pixels. The comparison must be in
       // CONTAINER space (latLngToContainerPoint vs getSize()/2) — layer space is offset by the
       // map pane's own position, which re-anchors as you move and would turn the "sub-pixel"
       // nudge into whole-pixel jumps.
-      map.setView([disp.lat, disp.lon], Math.max(map.getZoom(), 16), { animate: false });
+      // Respect the user's zoom here: flooring it (Math.max 16) per frame fights a zoom-out —
+      // every frame cancels the gesture's animation and yanks back toward 16, which reads as
+      // violent jitter below zoom 16. The "at least 16" floor lives only in the one-shot
+      // engage points (setFollow / recenter). Likewise `zooming` pauses re-centering while a
+      // pinch/wheel zoom is in flight so we never fight Leaflet's own zoom animation.
+      map.setView([disp.lat, disp.lon], map.getZoom(), { animate: false });
       const c = map.getSize().divideBy(2);
       const cp = map.latLngToContainerPoint([disp.lat, disp.lon]);
       setPan(c.x - cp.x, c.y - cp.y);
@@ -142,6 +148,16 @@ export function createDriving({ map, onFix, onActiveChange, onFollowChange }) {
   }
 
   function onDrag() { if (active) setFollow(false); }
+
+  // Zooming (pinch/wheel) keeps follow ON — it's a "how close" gesture, not a "look elsewhere"
+  // one — but the render loop must not re-center mid-gesture: setView cancels Leaflet's zoom
+  // animation each frame, which reads as violent jitter. Pause during the gesture, then snap
+  // the car back to dead-center when it ends.
+  function onZoomStart() { zooming = true; }
+  function onZoomEnd() {
+    zooming = false;
+    if (active && follow && disp) map.setView([disp.lat, disp.lon], map.getZoom(), { animate: false });
+  }
 
   function accept(p) {
     const { latitude: lat, longitude: lon, accuracy, heading, speed } = p.coords;
@@ -212,6 +228,8 @@ export function createDriving({ map, onFix, onActiveChange, onFollowChange }) {
         enableHighAccuracy: hiAcc, maximumAge: passive ? 30000 : 1000, timeout: 20000,
       });
       map.on('dragstart', onDrag);
+      map.on('zoomstart', onZoomStart);
+      map.on('zoomend', onZoomEnd);
       if (!passive) acquireLock();   // passive follow stays battery-cheap — no lock
       if (!passive && !('wakeLock' in navigator) && !params.get('sim')) onActiveChange('nolock');
       else onActiveChange(true);
@@ -233,8 +251,11 @@ export function createDriving({ map, onFix, onActiveChange, onFollowChange }) {
       geo.clearWatch(watchId);
       if (rafId) cancelAnimationFrame(rafId);
       rafId = null; disp = null; lastFixT = null; vLat = vLon = 0; cLat = cLon = 0; lastFrame = 0;
+      zooming = false;
       setPan(0, 0);   // drop the sub-pixel nudge so the wrapper sits neutral when idle
       map.off('dragstart', onDrag);
+      map.off('zoomstart', onZoomStart);
+      map.off('zoomend', onZoomEnd);
       map.removeLayer(chev);
       lock?.release?.(); lock = null;
       onActiveChange(false);
