@@ -126,6 +126,14 @@
      let the frosted chrome flash its translucent bg over the sharp pills. Go near-opaque
      for the duration so nothing shows through. */
   :root.theming .mat { background: var(--sheet-strong); }
+  /* Same idea for the tappable chrome: the .15s background ease (below, for :active press
+     feedback) otherwise freezes a half-swapped background into the snapshot while the icon's
+     currentColor stroke snaps — so the X and its container appear to change colour out of sync.
+     Kill the transition during the wipe so both bake their final colour in, in lockstep. */
+  :root.theming .iconbtn, :root.theming .drivebtn-top, :root.theming .tc-seg button,
+  :root.theming .sc-actions .primary, :root.theming .sc-actions .ghost, :root.theming .wc-ok,
+  :root.theming .wc-close, :root.theming .rc-item, :root.theming .rs-reason,
+  :root.theming .sc-flag, :root.theming .rc-del { transition: none; }
 
   .searchbar { position: absolute; z-index: 500; top: calc(env(safe-area-inset-top, 0px) + 12px);
     left: 16px; right: 72px; height: 48px; margin: 0; border-radius: 12px;
