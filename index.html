@@ -140,7 +140,7 @@
      currentColor stroke snaps — so the X and its container appear to change colour out of sync.
      Kill the transition during the wipe so both bake their final colour in, in lockstep. */
   :root.theming .iconbtn, :root.theming .drivebtn-top, :root.theming .tc-seg button,
-  :root.theming .sc-actions .primary, :root.theming .sc-actions .ghost, :root.theming .wc-ok,
+  :root.theming .sc-actions .primary, :root.theming .sc-actions .ghost,
   :root.theming .wc-close, :root.theming .rc-item, :root.theming .rs-reason,
   :root.theming .sc-flag, :root.theming .rc-del { transition: none; }
 
@@ -176,10 +176,10 @@
 
   /* tactile press feedback — a subtle spring-scale on tap, the core "iOS" micro-interaction */
   .iconbtn, .drivebtn-top, .tc-seg button, .sc-actions .primary, .sc-actions .ghost,
-  .wc-ok, .wc-close, .rc-item, .rs-reason, .sc-flag, .rc-del {
+  .wc-close, .rc-item, .rs-reason, .sc-flag, .rc-del {
     transition: transform .13s cubic-bezier(.4,0,.2,1), filter .13s ease, background .15s ease; }
   .iconbtn:active, .drivebtn-top:active, .tc-seg button:active, .sc-actions .primary:active,
-  .sc-actions .ghost:active, .wc-ok:active, .wc-close:active, .rc-del:active { transform: scale(.93); }
+  .sc-actions .ghost:active, .wc-close:active, .rc-del:active { transform: scale(.93); }
   .rc-item:active, .rs-reason:active, .sc-flag:active { transform: scale(.985); }
 
   /* recent destinations — drops under the searchbar when it's focused */
@@ -747,79 +747,28 @@
 <div id="toast" role="status"></div>
 
 
-<!-- ---- first-visit welcome ---- -->
+<!-- global reduced-motion fallback -->
 <style>
-  #welcome { position: fixed; inset: 0; z-index: 1000; display: none;
-    align-items: center; justify-content: center; padding: 20px;
-    background: rgba(0,0,0,.32); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
-  #welcome.show { display: flex; animation: wcFade .2s ease; }
-  .wc-card { position: relative; width: 100%; max-width: 320px; background: var(--sheet-solid); color: var(--text);
-    border-radius: 26px; box-shadow: var(--shadow); padding: 26px 22px 22px; text-align: center; }
-  #welcome.show .wc-card { animation: wcPop .3s cubic-bezier(.32,.72,0,1); }
-  @keyframes wcFade { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes wcPop { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
-  .wc-close { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border: none;
-    background: var(--chip); color: var(--muted); border-radius: 50%; display: grid; place-items: center;
-    cursor: pointer; }
-  .wc-close:active { filter: brightness(.94); }
-  .wc-logo svg { width: 38px; height: 38px; stroke: var(--sheet-solid); }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important;
       transition-duration: .001ms !important; }
     .spin { animation: none !important; }
   }
-  .wc-logo { width: 66px; height: 66px; border-radius: 17px; background: var(--pin);
-    display: grid; place-items: center; margin: 0 auto 16px; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
-  .wc-title { font-size: var(--fs-title); font-weight: 700; letter-spacing: -.4px; }
-  .wc-intro { font-size: var(--fs-body); line-height: 1.5; color: var(--muted-strong); margin-top: 10px; }
-  .wc-intro b { color: var(--text); font-weight: 600; }
-  .wc-modes { text-align: left; margin-top: 18px; display: flex; flex-direction: column; gap: 12px; }
-  .wc-mode { display: flex; gap: 12px; align-items: flex-start; }
-  .wc-num { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--chip);
-    color: var(--text); font-size: var(--fs-caption); font-weight: 700; display: grid; place-items: center; }
-  .wc-mode div:last-child { font-size: var(--fs-body); line-height: 1.45; color: var(--muted-strong); }
-  .wc-mode b { color: var(--text); font-weight: 600; }
-  .wc-feedback { font-size: var(--fs-caption); line-height: 1.5; color: var(--muted-strong); margin-top: 18px; }
-  .wc-feedback a { color: var(--text); font-weight: 600; text-decoration: none; }
-  .wc-ok { width: 100%; height: 44px; padding: 0 26px; border: none; border-radius: 14px;
-    background: var(--accent); color: var(--on-accent); font-family: inherit; font-size: var(--fs-body);
-    font-weight: 600; margin-top: 20px; cursor: pointer; }
-  .wc-ok:active { filter: brightness(.9); }
 </style>
-<div id="welcome" role="dialog" aria-modal="true" aria-labelledby="wcTitle">
-  <div class="wc-card">
-    <button class="wc-close" id="wcClose" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-    <div class="wc-logo">
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 1 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
-    </div>
-    <div class="wc-title" id="wcTitle">Welcome to Park Daddy</div>
-    <div class="wc-intro">Hey, I'm Char! I made this to help my friends find parking in Vancouver. It's focused on <b>street parking rates</b> across the city.</div>
-    <div class="wc-modes">
-      <div class="wc-mode"><div class="wc-num">1</div><div><b>Search</b> a destination and see parking rates around it</div></div>
-      <div class="wc-mode"><div class="wc-num">2</div><div><b>Drive mode</b> — see rates around you as you drive</div></div>
-    </div>
-    <div class="wc-feedback">This is still a work in progress so feel free to DM any feedback! 💛</div>
-    <button class="wc-ok" id="wcOk" type="button">Okie</button>
-  </div>
-</div>
-<script>
-  (function () {
-    var KEY = 'pd_welcome_seen';
-    var el = document.getElementById('welcome');
-    try { if (localStorage.getItem(KEY)) return; } catch (e) {}
-    el.classList.add('show');
-    function close() {
-      el.classList.remove('show');
-      try { localStorage.setItem(KEY, '1'); } catch (e) {}
-    }
-    document.getElementById('wcOk').addEventListener('click', close);
-    document.getElementById('wcClose').addEventListener('click', close);
-    el.addEventListener('click', function (e) { if (e.target === el) close(); });
-  })();
-</script>
 
 <!-- ---- Start-nav disclaimer (one-time) ---- -->
 <style>
+  @keyframes wcFade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes wcPop { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+  .wc-card { position: relative; width: 100%; max-width: 320px; background: var(--sheet-solid); color: var(--text);
+    border-radius: 26px; box-shadow: var(--shadow); padding: 26px 22px 22px; text-align: center; }
+  .wc-close { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border: none;
+    background: var(--chip); color: var(--muted); border-radius: 50%; display: grid; place-items: center;
+    cursor: pointer; }
+  .wc-close:active { filter: brightness(.94); }
+  .wc-title { font-size: var(--fs-title); font-weight: 700; letter-spacing: -.4px; }
+  .wc-intro { font-size: var(--fs-body); line-height: 1.5; color: var(--muted-strong); margin-top: 10px; }
+  .wc-intro b { color: var(--text); font-weight: 600; }
   #navwarn { position: fixed; inset: 0; z-index: 1001; display: none;
     align-items: center; justify-content: center; padding: 20px;
     background: rgba(0,0,0,.32); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
