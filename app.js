@@ -1,7 +1,7 @@
 import { rankMeters, rateNow, limitNow, bandRateNow, distMeters, ENF_START, MID, ENF_END, prohibitionWindowsForDay, prohibitionNow } from './rank.js?v=15';
-import { buildBlocks, buildSeattleBlocks, buildSeattleFreeBlocks, buildSFBlocks, createLabelLayer, fmtLimit, bucket } from './labels.js?v=28';
-import { CITIES, cityAt, DEFAULT_CITY } from './cities.js?v=5';
-import { createDriving, SIM_START } from './driving.js?v=26';
+import { buildBlocks, buildSeattleBlocks, buildSeattleFreeBlocks, buildSFBlocks, buildSanJoseBlocks, createLabelLayer, fmtLimit, bucket } from './labels.js?v=29';
+import { CITIES, cityAt, DEFAULT_CITY } from './cities.js?v=6';
+import { createDriving, SIM_START } from './driving.js?v=27';
 import { fetchRoute, createNav, fmtDist } from './nav.js?v=16';
 import { fetchFlags, submitReport, rptKey, FLAG_MIN, HIDE_MIN } from './reports.js?v=1';
 
@@ -161,7 +161,12 @@ function applyTheme(theme) {
   if (tt) tt.innerHTML = theme === 'dark' ? SUN_SVG : MOON_SVG;  // shows the mode you'd switch TO
   setTiles();
 }
-applyTheme(store.get(THEME_KEY) || (darkMedia.matches ? 'dark' : 'light'));
+// ?theme=dark|light forces a theme (handy for previewing / sharing a link); otherwise use the
+// saved preference, then fall back to the OS setting.
+const forcedTheme = params.get('theme');
+applyTheme((forcedTheme === 'dark' || forcedTheme === 'light')
+  ? forcedTheme
+  : (store.get(THEME_KEY) || (darkMedia.matches ? 'dark' : 'light')));
 darkMedia.addEventListener('change', () => {
   if (!store.get(THEME_KEY)) applyTheme(darkMedia.matches ? 'dark' : 'light');
 });
@@ -237,6 +242,7 @@ async function loadCity(key) {
       else if (d.kind === 'seattle') { pushBlocks(buildSeattleBlocks(data)); }
       else if (d.kind === 'seattle-free') { pushBlocks(buildSeattleFreeBlocks(data)); }
       else if (d.kind === 'sf') { pushBlocks(buildSFBlocks(data)); }
+      else if (d.kind === 'sanjose') { pushBlocks(buildSanJoseBlocks(data)); }
     });
     if (!labelLayer) initLiveLabels();          // first city: stand up the whole layer
     else labelLayer.refresh();                  // later cities: just repaint
@@ -1266,7 +1272,8 @@ function initLiveLabels() {
   const el = document.getElementById('welcome');
   if (!el) return;
   const WELCOME_KEY = 'pd_welcome_seen';
-  if (store.get(WELCOME_KEY) || params.get('dest') || params.get('lat')) return;
+  const force = params.get('welcome') === '1';   // local override to preview the picker after it's been seen
+  if (!force && (store.get(WELCOME_KEY) || params.get('dest') || params.get('lat'))) return;
   el.classList.add('show');
   const dismiss = () => { el.classList.remove('show'); store.set(WELCOME_KEY, '1'); };
   el.querySelectorAll('.wc-row').forEach((row) => {

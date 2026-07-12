@@ -161,16 +161,20 @@ export function createDriving({ map, onFix, onActiveChange, onFollowChange, bear
       zoom: Math.max(map.getZoom(), 16), bearing: wantBearing(), duration: reduce() ? 0 : 400 }); },
     setFollow,
     setSimTrack: (t) => geo.setTrack?.(t),
-    // Two-tier location, mirroring Google Maps:
-    //   passive (default on open) — coarse/low-power fix, no wake lock, screen sleeps.
-    //   nav (setNavMode(true))    — high-accuracy GPS + a screen wake lock while routing.
+    // Two-tier location, mirroring Google Maps. BOTH tiers use live GPS (enableHighAccuracy +
+    // fresh fixes) so the puck actually follows you while driving — the tiers differ ONLY in the
+    // screen wake lock, which is the real battery cost:
+    //   passive (default on open) — live GPS, but no wake lock, so the screen still sleeps.
+    //   nav (setNavMode(true))    — live GPS + a screen wake lock held while routing.
+    // (Passive used to request coarse network location with 30 s-stale fixes; downtown that reads
+    // worse than the 50 m accept gate, so the dot froze — "I'm driving but it doesn't move".)
     start({ passive = false } = {}) {
       if (active || !geo) return;
       active = true; follow = true; lastPos = null; lastDisp = null; hiAcc = !passive;
       // Instant "blue dot": snap to a cached fix while the live watch warms up.
       geo.getCurrentPosition?.(accept, () => {}, { enableHighAccuracy: false, maximumAge: 600000, timeout: 8000 });
       watchId = geo.watchPosition(accept, () => {}, {
-        enableHighAccuracy: hiAcc, maximumAge: passive ? 30000 : 1000, timeout: 20000,
+        enableHighAccuracy: true, maximumAge: 1000, timeout: 20000,
       });
       map.on('dragstart', onDrag);
       map.on('zoomstart', onZoomStart);
@@ -185,7 +189,7 @@ export function createDriving({ map, onFix, onActiveChange, onFollowChange, bear
       hiAcc = on;
       geo.clearWatch(watchId);
       watchId = geo.watchPosition(accept, () => {}, {
-        enableHighAccuracy: on, maximumAge: on ? 1000 : 30000, timeout: 20000,
+        enableHighAccuracy: true, maximumAge: 1000, timeout: 20000,   // tiers differ by wake lock, not GPS
       });
       if (on) acquireLock();
       else { lock?.release?.(); lock = null; }
