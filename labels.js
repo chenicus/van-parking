@@ -252,10 +252,13 @@ export function createLabelLayer(map, blocks, { nowMins, isWeekend, dow, onTap, 
       const lim = z >= 16 ? limitFor(bl, mins, dow, wknd) : null;
       const limTxt = lim != null && lim !== Infinity ? ' · ' + fmtLimit(lim) : '';
       const price = r.free ? 'Free' : fmtRate(r.rate);
-      const text = price + limTxt;
+      // dimmed suffix = per-hour unit + max-stay, e.g. "/hr · 2h". The "/hr" names the price's
+      // unit so "$8 · 2h" can't be misread as "$8 for two hours"; free spots take no unit.
+      const suffix = (r.free ? '' : '/hr') + limTxt;
+      const text = price + suffix;
       const flagged = !!flags(bl).flagged;
       return {
-        sig: 'b' + bl.id + '|' + text + (flagged ? '!' : ''), lat: bl.lat, lon: bl.lon, text, price, limTxt, free: r.free,
+        sig: 'b' + bl.id + '|' + text + (flagged ? '!' : ''), lat: bl.lat, lon: bl.lon, text, price, suffix, free: r.free,
         cls: bucket(r.rate, r.free), block: bl, rate: r.rate, flagged,
         d: distMeters(ctrLat, ctrLon, bl.lat, bl.lon),
       };
@@ -316,7 +319,7 @@ export function createLabelLayer(map, blocks, { nowMins, isWeekend, dow, onTap, 
       let mk = pillCache.get(d.sig);
       if (!mk) {
         const warn = d.flagged ? '<span class="pf">!</span>' : '';
-        const body = d.limTxt ? `${d.price}<span class="plim">${d.limTxt}</span>` : d.text;
+        const body = d.suffix ? `${d.price}<span class="plim">${d.suffix}</span>` : d.text;
         // 0-size wrapper element; the .plabel inside positions itself above the point (its CSS
         // translate). MapLibre keeps the wrapper screen-upright on rotate automatically.
         const el = document.createElement('div');
