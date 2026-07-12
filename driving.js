@@ -99,11 +99,28 @@ export function createDriving({ map, onFix, onActiveChange, onFollowChange, bear
 
   function accept(p) {
     const { latitude: lat, longitude: lon, accuracy, heading, speed } = p.coords;
-    if (accuracy != null && accuracy > 50) return;       // jitter gate
-    if (lastPos && distMeters(lastPos.lat, lastPos.lon, lat, lon) < 3) return;
-    let hdg = (speed != null && speed > 2 && heading != null && isFinite(heading)) ? heading : null;
-    if (hdg == null && lastPos) hdg = bearingDeg(lastPos.lat, lastPos.lon, lat, lon);
-    hdg = hdg != null ? hdg : (lastPos ? lastPos.hdg : 0);
+    if (accuracy != null && accuracy > 50) return;       // drop wild fixes
+    const moved = lastPos ? distMeters(lastPos.lat, lastPos.lon, lat, lon) : Infinity;
+    if (moved < 3) return;                               // holding station — ignore GPS jitter
+
+    // Heading, most-trusted first. The old code inferred a bearing from ANY >3 m step, so a
+    // slow crawl or a jittery downtown fix (accuracy up to 50 m, GPS bounces off buildings)
+    // would point the map — and the compass needle riding on it — in a random direction. That
+    // was the "compass keeps spinning / won't show my direction" bug. Now:
+    //   1) trust the device's own heading while genuinely moving, and only if it's a real value
+    //      — some phones report -1 for "unknown", which isFinite() alone would let through;
+    //   2) else infer from the step, but only on a long, accurate move — not GPS scatter;
+    //   3) else keep the last good heading and never snap to a guess.
+    let hdg;
+    if (speed != null && speed > 2 && heading != null && isFinite(heading) && heading >= 0) {
+      hdg = heading;                                   // moving fast enough to trust the device heading
+    } else if (speed != null && speed < 1) {
+      hdg = lastPos ? lastPos.hdg : 0;                 // essentially stopped — hold, don't chase position jitter
+    } else if (lastPos && moved >= 10 && (accuracy == null || accuracy <= 25)) {
+      hdg = bearingDeg(lastPos.lat, lastPos.lon, lat, lon);   // no device heading — infer from a real, accurate step
+    } else {
+      hdg = lastPos ? lastPos.hdg : 0;                 // not enough signal — keep the last good heading
+    }
     lastPos = { lat, lon, hdg };
     // Draw the car. Marker stays screen-upright (rotationAlignment handles heading); its rotation
     // is the geographic heading so it points the right way in both orientations.
