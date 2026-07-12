@@ -771,8 +771,67 @@
   </div>
 </div>
 
+<!-- ---- first-visit city picker ---- -->
+<style>
+  #welcome { position: fixed; inset: 0; z-index: 1200; display: none;
+    align-items: flex-end; justify-content: center;
+    background: rgba(0,0,0,.34); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+  #welcome.show { display: flex; animation: wcFade .2s ease; }
+  #welcome.show .wc-sheet { animation: wcRise .34s cubic-bezier(.32,.72,0,1); }
+  @keyframes wcRise { from { transform: translateY(100%); } to { transform: none; } }
+  .wc-sheet { width: 100%; max-width: 440px; background: var(--sheet-solid); color: var(--text);
+    border-radius: 22px 22px 0 0; box-shadow: var(--shadow);
+    padding: 12px 18px calc(env(safe-area-inset-bottom, 0px) + 22px); }
+  .wc-grab { width: 38px; height: 5px; border-radius: 3px; background: var(--grabber); margin: 0 auto 16px; }
+  .wc-title { font-size: var(--fs-title); font-weight: 700; letter-spacing: -.4px; }
+  .wc-sub { font-size: var(--fs-body); line-height: 1.45; color: var(--muted-strong); margin-top: 8px; }
+  .wc-sub b { color: var(--text); font-weight: 600; }
+  .wc-rows { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+  .wc-row { display: flex; align-items: center; gap: 14px; padding: 14px 15px; border-radius: 16px;
+    border: 1.5px solid var(--line); background: var(--sheet-solid); color: var(--text);
+    font-family: inherit; cursor: pointer; text-align: left;
+    transition: transform .1s ease, border-color .15s ease, background .15s ease; }
+  .wc-row:hover { border-color: var(--accent); }
+  .wc-row:active { transform: scale(.985); background: var(--chip); }
+  .wc-flag { flex: none; width: 34px; height: 24px; border-radius: 5px; overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.14); }
+  .wc-flag svg { display: block; width: 100%; height: 100%; }
+  .wc-nmrow { display: flex; align-items: center; gap: 8px; }
+  .wc-nm { font-size: var(--fs-headline); font-weight: 600; letter-spacing: -.2px; }
+  .wc-rg { display: block; font-size: var(--fs-caption); color: var(--muted); margin-top: 1px; }
+  .wc-new { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 9px; line-height: 1;
+    letter-spacing: .5px; text-transform: uppercase; font-weight: 700; padding: 3px 5px;
+    border-radius: 5px; background: var(--accent); color: var(--on-accent); }
+  .wc-chev { margin-left: auto; color: var(--muted); display: grid; place-items: center; }
+  .wc-chev svg { width: 18px; height: 18px; }
+</style>
+<div id="welcome" role="dialog" aria-modal="true" aria-labelledby="wcTitle">
+  <div class="wc-sheet">
+    <div class="wc-grab"></div>
+    <div class="wc-title" id="wcTitle">Pick your city</div>
+    <div class="wc-sub">Find metered street rates <b>as you drive</b> — now live in three cities.</div>
+    <div class="wc-rows">
+      <button class="wc-row" type="button" data-city="vancouver">
+        <span class="wc-flag"><svg viewBox="0 0 60 40"><rect width="60" height="40" fill="#fff"/><rect width="15" height="40" fill="#d52b1e"/><rect x="45" width="15" height="40" fill="#d52b1e"/><path transform="translate(30,20) scale(0.315) translate(-50,-52)" d="M50 12 L54 30 L70 26 L66 40 L82 38 L72 52 L88 58 L64 66 L68 74 L54 72 L56 92 L44 92 L46 72 L32 74 L36 66 L12 58 L28 52 L18 38 L34 40 L30 26 L46 30 Z" fill="#d52b1e"/></svg></span>
+        <span><span class="wc-nmrow"><span class="wc-nm">Vancouver</span></span><span class="wc-rg">British Columbia, Canada</span></span>
+        <span class="wc-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+      </button>
+      <button class="wc-row" type="button" data-city="seattle">
+        <span class="wc-flag"><svg viewBox="0 0 60 40"><rect width="60" height="40" fill="#b31942"/><rect y="3.08" width="60" height="3.08" fill="#fff"/><rect y="9.23" width="60" height="3.08" fill="#fff"/><rect y="15.38" width="60" height="3.08" fill="#fff"/><rect y="21.54" width="60" height="3.08" fill="#fff"/><rect y="27.69" width="60" height="3.08" fill="#fff"/><rect y="33.85" width="60" height="3.08" fill="#fff"/><rect width="24" height="21.54" fill="#3c3b6e"/><g fill="#fff"><circle cx="4" cy="4" r="1.1"/><circle cx="9.5" cy="4" r="1.1"/><circle cx="15" cy="4" r="1.1"/><circle cx="20.5" cy="4" r="1.1"/><circle cx="4" cy="10.7" r="1.1"/><circle cx="9.5" cy="10.7" r="1.1"/><circle cx="15" cy="10.7" r="1.1"/><circle cx="20.5" cy="10.7" r="1.1"/><circle cx="4" cy="17.4" r="1.1"/><circle cx="9.5" cy="17.4" r="1.1"/><circle cx="15" cy="17.4" r="1.1"/><circle cx="20.5" cy="17.4" r="1.1"/></g></svg></span>
+        <span><span class="wc-nmrow"><span class="wc-nm">Seattle</span><span class="wc-new">New</span></span><span class="wc-rg">Washington, USA</span></span>
+        <span class="wc-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+      </button>
+      <button class="wc-row" type="button" data-city="sf">
+        <span class="wc-flag"><svg viewBox="0 0 60 40"><rect width="60" height="40" fill="#b31942"/><rect y="3.08" width="60" height="3.08" fill="#fff"/><rect y="9.23" width="60" height="3.08" fill="#fff"/><rect y="15.38" width="60" height="3.08" fill="#fff"/><rect y="21.54" width="60" height="3.08" fill="#fff"/><rect y="27.69" width="60" height="3.08" fill="#fff"/><rect y="33.85" width="60" height="3.08" fill="#fff"/><rect width="24" height="21.54" fill="#3c3b6e"/><g fill="#fff"><circle cx="4" cy="4" r="1.1"/><circle cx="9.5" cy="4" r="1.1"/><circle cx="15" cy="4" r="1.1"/><circle cx="20.5" cy="4" r="1.1"/><circle cx="4" cy="10.7" r="1.1"/><circle cx="9.5" cy="10.7" r="1.1"/><circle cx="15" cy="10.7" r="1.1"/><circle cx="20.5" cy="10.7" r="1.1"/><circle cx="4" cy="17.4" r="1.1"/><circle cx="9.5" cy="17.4" r="1.1"/><circle cx="15" cy="17.4" r="1.1"/><circle cx="20.5" cy="17.4" r="1.1"/></g></svg></span>
+        <span><span class="wc-nmrow"><span class="wc-nm">San Francisco</span><span class="wc-new">New</span></span><span class="wc-rg">California, USA</span></span>
+        <span class="wc-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+      </button>
+    </div>
+  </div>
+</div>
+
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin="anonymous"></script>
-<script type="module" src="app.js?v=57"></script>
+<script type="module" src="app.js?v=58"></script>
 
 <!-- Cloudflare Web Analytics — privacy-friendly visitor + country tracking, no cookies -->
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js"

@@ -207,8 +207,22 @@ function buildFreeBlocks(arr) {
 // lazy-load a city's feeds the first time you're there (on open via geolocation, or on
 // pan/search into it), pushing its blocks into the shared `blocks` array.
 let activeCity = DEFAULT_CITY;
+// Set once the first-visit picker sends us somewhere: it suppresses the best-effort geolocation
+// recenter below so an incoming GPS fix can't yank the map off the city the user just tapped.
+let cityChosen = false;
 const loadedCities = new Set();
 function pushBlocks(arr) { for (const b of arr) blocks.push(b); }
+
+// Fly to a city and load its feeds. Used by the first-visit picker (#welcome).
+async function goToCity(key) {
+  const c = CITIES[key];
+  if (!c) return;
+  cityChosen = true;
+  activeCity = key;
+  await mapLoaded;
+  map.jumpTo({ center: [c.center[1], c.center[0]], zoom: c.zoom });
+  await loadCity(key);
+}
 
 async function loadCity(key) {
   if (loadedCities.has(key)) return;
@@ -266,6 +280,7 @@ async function loadCity(key) {
     new Promise((r) => setTimeout(() => r(null), 5000)),
   ]);
   if (!pos) return;
+  if (cityChosen) return;                                // user picked a city in the welcome — respect it
   const key = cityAt(pos.lat, pos.lon);
   if (!key) return;                                      // outside coverage — stay on the default city
   if (key !== activeCity) { activeCity = key; await loadCity(key); }
@@ -1242,3 +1257,23 @@ function initLiveLabels() {
   if (params.get('sim')) driving.start();
   else driving.start({ passive: true });
 }
+
+// ---- first-visit city picker -----------------------------------------------
+// Shown once per browser. Tapping a city flies there and loads its feeds (goToCity), which also
+// suppresses the boot geolocation recenter. Tapping the scrim or Esc dismisses without choosing,
+// leaving whatever city geolocation picked. Deep links (?lat/?lon or ?dest) skip it entirely.
+(function initWelcome() {
+  const el = document.getElementById('welcome');
+  if (!el) return;
+  const WELCOME_KEY = 'pd_welcome_seen';
+  if (store.get(WELCOME_KEY) || params.get('dest') || params.get('lat')) return;
+  el.classList.add('show');
+  const dismiss = () => { el.classList.remove('show'); store.set(WELCOME_KEY, '1'); };
+  el.querySelectorAll('.wc-row').forEach((row) => {
+    row.addEventListener('click', () => { dismiss(); goToCity(row.getAttribute('data-city')); });
+  });
+  el.addEventListener('click', (e) => { if (e.target === el) dismiss(); });
+  window.addEventListener('keydown', function onEsc(e) {
+    if (e.key === 'Escape' && el.classList.contains('show')) { dismiss(); window.removeEventListener('keydown', onEsc); }
+  });
+})();
