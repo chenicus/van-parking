@@ -225,7 +225,7 @@ export function createLabelLayer(map, blocks, { nowMins, isWeekend, dow, onTap, 
       for (const [ck, c] of cells) {
         const free = c.nFree >= c.nPaid;
         if (!free && c.minPaid === Infinity) continue;
-        const text = free ? '$0' : fmtRate(c.minPaid);
+        const text = free ? 'Free' : fmtRate(c.minPaid);
         items.push({
           sig: 'g' + ck + '|' + text, lat: c.lat, lon: c.lon, text, cluster: true,
           cls: bucket(free ? 0 : c.minPaid, free), block: null,
@@ -251,7 +251,7 @@ export function createLabelLayer(map, blocks, { nowMins, isWeekend, dow, onTap, 
       const r = rateFor(bl, mins, dow);
       const lim = z >= 16 ? limitFor(bl, mins, dow, wknd) : null;
       const limTxt = lim != null && lim !== Infinity ? ' · ' + fmtLimit(lim) : '';
-      const price = r.free ? '$0' : fmtRate(r.rate);
+      const price = r.free ? 'Free' : fmtRate(r.rate);
       const text = price + limTxt;
       const flagged = !!flags(bl).flagged;
       return {

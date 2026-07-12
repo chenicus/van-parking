@@ -1,7 +1,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Park Daddy</title>
-<meta name="description" content="Find street parking rates across Vancouver.">
+<meta name="description" content="Find street parking rates in Vancouver, Seattle & San Francisco.">
 <meta id="themeColor" name="theme-color" content="#ffffff">
 
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -11,14 +11,14 @@
 <!-- Open Graph / link preview -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="Park Daddy">
-<meta property="og:description" content="Find street parking rates across Vancouver.">
+<meta property="og:description" content="Find street parking rates in Vancouver, Seattle & San Francisco.">
 <meta property="og:image" content="https://chenicus.github.io/park-daddy/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:url" content="https://chenicus.github.io/park-daddy/">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Park Daddy">
-<meta name="twitter:description" content="Find street parking rates across Vancouver.">
+<meta name="twitter:description" content="Find street parking rates in Vancouver, Seattle & San Francisco.">
 <meta name="twitter:image" content="https://chenicus.github.io/park-daddy/og.png">
 
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" crossorigin="anonymous">
@@ -688,7 +688,7 @@
     <button class="primary" id="scstart" type="button">
       <svg viewBox="0 0 24 24"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>Navigate
     </button>
-    <a class="ghost" id="scmaps" target="_blank" rel="noopener">Open in Maps ↗</a>
+    <a class="ghost" id="scmaps" target="_blank" rel="noopener">Open in Google Maps ↗</a>
   </div>
 </div>
 
@@ -767,16 +767,19 @@
     <div class="wc-title" id="nwTitle">Just a rough guide</div>
     <div class="wc-intro"><b>Navigate</b> gives basic in-app turn-by-turn, but it has <b>no live traffic, road closures, or incidents</b>. For real-time directions, open your usual map app instead.</div>
     <div class="nw-actions">
-      <button class="nw-secondary" id="nwMaps" type="button">Open in Maps</button>
+      <button class="nw-secondary" id="nwMaps" type="button">Open in Google Maps</button>
       <button class="nw-primary" id="nwStart" type="button">Navigate anyway</button>
     </div>
   </div>
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin="anonymous"></script>
-<script type="module" src="app.js?v=55"></script>
+<script type="module" src="app.js?v=56"></script>
 
-<!-- Cloudflare Web Analytics — privacy-friendly visitor + country tracking, no cookies -->
+<!-- Cloudflare Web Analytics — privacy-friendly visitor + country tracking, no cookies.
+     Disabled until a real token is set: shipping the placeholder fired a failing beacon
+     request on every page load. To enable, paste your Cloudflare token below and uncomment.
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js"
-        data-cf-beacon='{"token": "PASTE_YOUR_CLOUDFLARE_TOKEN_HERE"}'></script>
-<!-- End Cloudflare Web Analytics -->
+        data-cf-beacon='{"token": "YOUR_CLOUDFLARE_TOKEN"}'></script>
+-->
+

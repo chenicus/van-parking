@@ -1,5 +1,5 @@
 import { rankMeters, rateNow, limitNow, bandRateNow, distMeters, ENF_START, MID, ENF_END, prohibitionWindowsForDay, prohibitionNow } from './rank.js?v=15';
-import { buildBlocks, buildSeattleBlocks, buildSeattleFreeBlocks, buildSFBlocks, createLabelLayer, fmtLimit, bucket } from './labels.js?v=26';
+import { buildBlocks, buildSeattleBlocks, buildSeattleFreeBlocks, buildSFBlocks, createLabelLayer, fmtLimit, bucket } from './labels.js?v=27';
 import { CITIES, cityAt, DEFAULT_CITY } from './cities.js?v=5';
 import { createDriving, SIM_START } from './driving.js?v=26';
 import { fetchRoute, createNav, fmtDist } from './nav.js?v=16';
@@ -832,7 +832,7 @@ function endNav(arrived) {
   document.body.classList.remove('nav');
   driving.setNavMode(false);                   // back to passive follow — drop the wake lock
   applyOrientation();                          // nav off → un-rotate back to north-up
-  if (arrived) toast('You’ve arrived — pick a spot from the price pills.', 7000);
+  if (arrived) toast('You’ve arrived — tap any price on the map to see spot details.', 7000);
 }
 
 function toast(msg, ms = 5000) {

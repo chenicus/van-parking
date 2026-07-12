@@ -2,7 +2,7 @@
 
 # 🚗 Park Daddy
 
-**Live street-parking rates for Vancouver — see prices update as you drive.**
+**Live street-parking rates for Vancouver, Seattle & San Francisco — see prices update as you drive.**
 
 [**▶ Live app**](https://chenicus.github.io/park-daddy/)
 
@@ -20,7 +20,8 @@
 | | |
 |---|---|
 | 🧭 **Drive mode** | Follow-me map showing each block's parking rate as you drive past it. |
-| 🅿️ **Up-to-date meter data** | Every Vancouver metered block (3,758 meters), refreshable with one script. |
+| 🅿️ **Up-to-date meter data** | Every metered block across Vancouver, Seattle & San Francisco, refreshable per city. |
+| 🚫 **No-park awareness** | Loading zones, no-stopping and permit-only windows hide the spot while active and show in its schedule. |
 | ⚠️ **Crowd-sourced spot reports** | Drivers flag wrong spots (sign changed, permit-only, etc.); 1 report warns the pill, 3 hide it. |
 
 ---
@@ -29,8 +30,8 @@
 
 | Layer | What we use | For |
 |---|---|---|
-| **Map** | [Leaflet 1.9.4](https://leafletjs.com/) + [CARTO basemaps](https://carto.com/basemaps/) | Map + light/dark tiles (CDN, SRI-pinned). |
-| **Parking data** | [City of Vancouver Open Data](https://opendata.vancouver.ca/) — `parking-meters` + `parking-tickets` | Meter rates, limits, rush-hours, geo. |
+| **Map** | [MapLibre GL 4.7](https://maplibre.org/) + [CARTO vector styles](https://carto.com/basemaps/) | Rotatable vector map + light/dark styles (CDN). |
+| **Parking data** | [City of Vancouver](https://opendata.vancouver.ca/), [Seattle](https://data.seattle.gov/) & [San Francisco](https://datasf.org/) open data | Meter rates, limits, rush-hours, prohibition zones, geo. |
 | **Routing** | [Valhalla](https://valhalla1.openstreetmap.de/) (public OSM server) | Drive-mode route geometry + maneuvers. |
 | **Geocoding** | [Nominatim (OpenStreetMap)](https://nominatim.org/) | Address / place / street search + autocomplete. |
 | **Fallback nav** | [Google Maps deep links](https://developers.google.com/maps/documentation/urls/get-started) | Hand off to native turn-by-turn. |
@@ -42,15 +43,14 @@
 
 ---
 
-## 📍 Coverage: Vancouver only
+## 📍 Coverage: Vancouver, Seattle & San Francisco
 
-Park Daddy covers the **City of Vancouver only**, because it's the only municipality that
-publishes the data. The app is built entirely on Vancouver's open `parking-meters` +
-`parking-tickets` feeds.
+Park Daddy covers three cities that publish open parking data: the **City of Vancouver**
+(`parking-meters` + `parking-tickets`), **Seattle** (paid blockfaces), and **San Francisco**
+(metered blocks with time-of-day rate bands). The map auto-loads the city you're in or pan to.
 
-Neighbouring cities — **Burnaby**, **New Westminster**, **North Vancouver**, etc. — run their
-metered parking on PayByPhone but publish **no equivalent open dataset**. Their open-data
-portals only expose things like parks, streets, and (for North Van District) parking
-*restriction* lines — not meter rates or locations. Adding those cities would mean scraping
-PayByPhone rather than a clean data download, so for now coverage stops at the Vancouver city
-limits (Boundary Rd).
+Coverage is gated by open data, not ambition. Cities that run metered parking on a closed
+platform (e.g. PayByPhone, with no equivalent open dataset) would require scraping rather than
+a clean data download, so they're out of scope for now. Around Vancouver that rules out
+neighbours like **Burnaby**, **New Westminster** and **North Vancouver**, whose portals expose
+parks and streets but not meter rates or locations.
