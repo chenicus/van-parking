@@ -1,6 +1,6 @@
 import { rankMeters, rateNow, limitNow, bandRateNow, distMeters, ENF_START, MID, ENF_END } from './rank.js?v=14';
-import { buildBlocks, buildSeattleBlocks, buildSeattleFreeBlocks, buildSFBlocks, createLabelLayer, towSoon, fmtLimit, bucket } from './labels.js?v=24';
-import { CITIES, cityAt, DEFAULT_CITY } from './cities.js?v=4';
+import { buildBlocks, buildSeattleBlocks, buildSeattleFreeBlocks, buildSFBlocks, createLabelLayer, towSoon, fmtLimit, bucket } from './labels.js?v=25';
+import { CITIES, cityAt, DEFAULT_CITY } from './cities.js?v=5';
 import { createDriving, SIM_START } from './driving.js?v=26';
 import { fetchRoute, createNav, fmtDist } from './nav.js?v=16';
 import { fetchFlags, submitReport, rptKey, FLAG_MIN, HIDE_MIN } from './reports.js?v=1';

@@ -27,6 +27,22 @@ export function buildSeattleBlocks(records, idBase = 2e6) {
   }));
 }
 
+// San Francisco: point meters (like Vancouver → dots via `pts`, no `line`) priced by
+// time-of-day bands (like Seattle → rateFor/limitFor/schedule dispatch on `bands`). Each
+// record is already one block (meters pre-grouped in build-sf.py). No fresh per-meter time-
+// limit feed exists for SF, so limitMin stays null → pills show price only, cards omit max-stay.
+export function buildSFBlocks(records, idBase = 4e6) {
+  return records.map((o, i) => ({
+    id: idBase + i,
+    lat: o.lat, lon: o.lon,                            // block centroid: pill anchor + distance
+    pts: o.pts,                                        // meter points → dots (rendered like Vancouver)
+    bands: { wkd: o.wkd, sat: o.sat, sun: o.sun },
+    limitMin: null,                                    // no current SF time-limit source (see build-sf.py)
+    spaces: o.spaces, hblock: o.h,
+    rushes: [], card: false,                           // no meter-level rush windows in SF
+  }));
+}
+
 const EMPTY_BANDS = { wkd: [], sat: [], sun: [] };   // always-free blockface (no paid hours)
 
 // Seattle's free layer: unrestricted (free, unlimited) + time-limited (free, capped).

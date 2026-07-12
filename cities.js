@@ -14,6 +14,7 @@ export const CITIES = {
       { url: 'data/free.json', kind: 'free' },
     ],
     style: 'points',
+    rank: true,   // only city with the point-meter feed rankMeters() understands (walk-cost spot suggestions)
     geo: { cc: 'ca', suffix: 'Vancouver, BC' },
   },
   seattle: {
@@ -26,6 +27,19 @@ export const CITIES = {
     ],
     style: 'lines',
     geo: { cc: 'us', suffix: 'Seattle, WA' },
+  },
+  sf: {
+    name: 'San Francisco',
+    center: [37.7749, -122.4194], zoom: 13,
+    bounds: [[37.70, -122.53], [37.84, -122.35]],
+    data: [
+      { url: 'data/sf-meters.json?v=1', kind: 'sf' },
+    ],
+    // Point meters (drawn as dots, like Vancouver) but priced by time-of-day bands (like
+    // Seattle's demand-responsive shape). No `rank`: its meters carry rate bands, not the
+    // Vancouver rate fields rankMeters() reads, so we frame on the destination without suggestions.
+    style: 'points',
+    geo: { cc: 'us', suffix: 'San Francisco, CA' },
   },
 };
 
