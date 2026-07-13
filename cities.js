@@ -41,6 +41,19 @@ export const CITIES = {
     style: 'points',
     geo: { cc: 'us', suffix: 'San Francisco, CA' },
   },
+  sanjose: {
+    name: 'San Jose',
+    center: [37.3352, -121.8895], zoom: 15,
+    bounds: [[37.30, -121.94], [37.38, -121.85]],
+    data: [
+      { url: 'data/sanjose-meters.json?v=1', kind: 'sanjose' },
+    ],
+    // Flat-rate point meters ($2/hr Mon–Sat 9–6, free Sun) — same points+bands shape as SF.
+    // No `rank`: bands, not the Vancouver rate fields rankMeters() reads. Compact downtown
+    // footprint, so a tighter default zoom (15) than the larger cities.
+    style: 'points',
+    geo: { cc: 'us', suffix: 'San Jose, CA' },
+  },
 };
 
 // Which city (key) contains this point, or null if outside every coverage box.

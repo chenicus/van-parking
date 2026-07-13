@@ -44,6 +44,21 @@ export function buildSFBlocks(records, idBase = 4e6) {
   }));
 }
 
+// San Jose: same hybrid shape as SF (point meters + bands) but the simplest case — a flat
+// $2/hr band Mon–Sat 9–6, free Sundays (see build-sanjose.py). Unlike SF, the feed carries a
+// per-meter time limit, so limitMin is set → pills/cards show max-stay during metered hours.
+export function buildSanJoseBlocks(records, idBase = 5e6) {
+  return records.map((o, i) => ({
+    id: idBase + i,
+    lat: o.lat, lon: o.lon,
+    pts: o.pts,
+    bands: { wkd: o.wkd, sat: o.sat, sun: o.sun },
+    limitMin: o.limit || null,
+    spaces: o.spaces, hblock: o.h,
+    rushes: [], card: false,
+  }));
+}
+
 const EMPTY_BANDS = { wkd: [], sat: [], sun: [] };   // always-free blockface (no paid hours)
 
 // Seattle's free layer: unrestricted (free, unlimited) + time-limited (free, capped).
