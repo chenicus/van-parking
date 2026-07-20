@@ -123,16 +123,16 @@ def load_rates(path):
     with open(path, newline="") as f:
         for raw in csv.DictReader(f):
             row = {(k or "").strip(): (v or "").strip() for k, v in raw.items()}
-            block = row.get("Street Block", "")
-            day = row.get("Day Type") or row.get("Date Type") or ""
+            block = row.get("Street Block") or row.get("STREET_BLOCK", "")
+            day = row.get("Day Type") or row.get("Date Type") or row.get("DATE_TYPE") or ""
             if day not in ("Weekday", "Weekend"):   # skip blanks + embedded header rows
                 continue
-            bid = row.get("Time Band") or row.get("Time Band ID") or ""
+            bid = row.get("Time Band") or row.get("Time Band ID") or row.get("TIME_BAND_ID") or ""
             mb = re.search(r"(\d)", bid)
             if not mb or int(mb.group(1)) not in BAND:
                 continue
             bid = int(mb.group(1))
-            raw_rate = (row.get("Final Rate") or row.get("Rate") or "").replace("$", "").strip()
+            raw_rate = (row.get("Final Rate") or row.get("Rate") or row.get("FINAL_RATE") or "").replace("$", "").strip()
             try:
                 rate = round(float(raw_rate), 2)
             except ValueError:
