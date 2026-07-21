@@ -590,11 +590,13 @@
     stroke-linecap: round; stroke-linejoin: round; color: var(--muted); }
   .mn-foot { font-size: var(--fs-caption); line-height: 1.5; color: var(--muted); margin-top: 20px; }
 
-  /* ---- available-cities list — informational only, not tappable ---- */
+  /* ---- available-cities list — informational only, not tappable. Compact 2-col grid,
+     flag + name only (no state/province — this is a quick "is my city here" scan). ---- */
   .mn-section-label { font-size: var(--fs-caption); font-weight: 600; letter-spacing: .4px;
     text-transform: uppercase; color: var(--muted); margin-top: 20px; }
-  .mn-cities { display: flex; flex-direction: column; gap: 6px; margin-top: 10px;
-    font-size: var(--fs-body); letter-spacing: -.2px; color: var(--text); }
+  .mn-cities { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; row-gap: 9px; margin-top: 10px; }
+  .mn-city { font-size: var(--fs-body); letter-spacing: -.1px; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   /* ---- changelog list ---- */
   .cl-rel { padding: 14px 0; border-top: 1px solid var(--line); }
@@ -803,16 +805,16 @@
   </div>
   <div class="mn-section-label">Available cities</div>
   <div class="mn-cities">
-    <div>🇨🇦 Vancouver, British Columbia</div>
-    <div>🇺🇸 Seattle, Washington</div>
-    <div>🇺🇸 San Francisco, California</div>
-    <div>🇺🇸 San Jose, California</div>
-    <div>🇺🇸 Kirkland, Washington</div>
+    <div class="mn-city">🇨🇦 Vancouver</div>
+    <div class="mn-city">🇺🇸 Seattle</div>
+    <div class="mn-city">🇺🇸 San Francisco</div>
+    <div class="mn-city">🇺🇸 San Jose</div>
+    <div class="mn-city">🇺🇸 Kirkland</div>
   </div>
   <div class="mn-rows">
     <button class="mn-row" id="mnFeedback" type="button">
       <svg viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
-      <span class="mn-txt"><span class="mn-nm">Leave feedback</span><span class="mn-sub">Wrong info, missing city, or an idea</span></span>
+      <span class="mn-txt"><span class="mn-nm">Leave feedback</span><span class="mn-sub">Ideas, city requests, bugs and more!</span></span>
       <svg class="mn-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
     </button>
     <button class="mn-row" id="mnChangelog" type="button">
