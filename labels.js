@@ -80,9 +80,11 @@ export function buildKirklandBlocks(records, idBase = 6e6) {
 
 const EMPTY_BANDS = { wkd: [], sat: [], sun: [] };   // always-free blockface (no paid hours)
 
-// Seattle's free layer: unrestricted (free, unlimited) + time-limited (free, capped).
+// The free-blockface layer: unrestricted (free, unlimited) + time-limited (free, capped).
 // No rate bands, so they read as free at every hour. Unrestricted blocks are line-only
 // (noPill) — 30k "$0" pills would bury the map; the blue line already says "free here".
+// Shared by Seattle and SF: SF's regulation feed has no unrestricted category, so it sends
+// all-'tl' records (see build-sf-free.py) and every block gets a pill.
 export function buildSeattleFreeBlocks(records, idBase = 3e6) {
   return records.map((o, i) => ({
     id: idBase + i,

@@ -1,6 +1,6 @@
 import { rankMeters, rateNow, limitNow, bandRateNow, distMeters, ENF_START, MID, ENF_END, prohibitionWindowsForDay, prohibitionNow } from './rank.js?v=15';
 import { buildBlocks, buildSeattleBlocks, buildSeattleFreeBlocks, buildSFBlocks, buildSanJoseBlocks, buildKirklandBlocks, createLabelLayer, fmtLimit, bucket } from './labels.js?v=31';
-import { CITIES, cityAt, DEFAULT_CITY } from './cities.js?v=7';
+import { CITIES, cityAt, DEFAULT_CITY } from './cities.js?v=8';
 import { createDriving, SIM_START } from './driving.js?v=28';
 import { fetchRoute, createNav, fmtDist } from './nav.js?v=16';
 import { fetchFlags, submitReport, rptKey, FLAG_MIN, HIDE_MIN } from './reports.js?v=1';
@@ -242,6 +242,7 @@ async function loadCity(key) {
       else if (d.kind === 'seattle') { pushBlocks(buildSeattleBlocks(data)); }
       else if (d.kind === 'seattle-free') { pushBlocks(buildSeattleFreeBlocks(data)); }
       else if (d.kind === 'sf') { pushBlocks(buildSFBlocks(data)); }
+      else if (d.kind === 'sf-free') { pushBlocks(buildSeattleFreeBlocks(data, 7e6)); }
       else if (d.kind === 'sanjose') { pushBlocks(buildSanJoseBlocks(data)); }
       else if (d.kind === 'kirkland') { const kb = buildKirklandBlocks(data); pushBlocks(kb); startKirkLive(kb, c.live); }
     });

@@ -34,10 +34,13 @@ export const CITIES = {
     bounds: [[37.70, -122.53], [37.84, -122.35]],
     data: [
       { url: 'data/sf-meters.json?v=1', kind: 'sf' },
+      { url: 'data/sf-free.json?v=1', kind: 'sf-free' },
     ],
     // Point meters (drawn as dots, like Vancouver) but priced by time-of-day bands (like
     // Seattle's demand-responsive shape). No `rank`: its meters carry rate bands, not the
     // Vancouver rate fields rankMeters() reads, so we frame on the destination without suggestions.
+    // The free layer is blockface LINES (Seattle's shape) — so SF draws both dots and lines.
+    // It's time-limited blocks only; SF publishes no unrestricted-parking feed (build-sf-free.py).
     style: 'points',
     geo: { cc: 'us', suffix: 'San Francisco, CA' },
   },
