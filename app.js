@@ -1760,8 +1760,10 @@ function initLiveLabels() {
   updateRecenter();
   window.__pk = { map, layer: labelLayer, driving, blocks, showSpotCard, loadFlags, flagFor };  // debug handle
   // Drive mode is the default surface: open focused on the user (passive, low-power).
+  // But starting it fires getCurrentPosition/watchPosition, i.e. the permission prompt — so it
+  // waits on the same boot gate as the recenter, or the prompt lands *over* the welcome picker.
   if (params.get('sim')) driving.start();
-  else driving.start({ passive: true });
+  else bootUISettled.then(() => driving.start({ passive: true }));
 }
 
 // ---- first-visit city picker -----------------------------------------------
