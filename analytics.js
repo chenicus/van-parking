@@ -9,7 +9,10 @@
 //   - the destination people type (it's a real address — often their home or work)
 //   - GPS coordinates, ever
 //   - anything from the report/feedback free-text fields
-// Searches are logged as "a search happened, N results" — never the query itself.
+// Searches are logged as "a search happened, N results" — never the query itself. The one
+// exception is a search that lands outside our cities: that logs the geocoder's town and
+// country ("Portland, United States") because it's the demand signal for where to expand.
+// Still coarse, still not the typed address, and disclosed in the privacy policy.
 // If you add an event, keep to that line: shape of the interaction, not its content.
 import { POSTHOG_KEY, POSTHOG_HOST } from './config.js?v=2';
 

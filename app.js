@@ -5,7 +5,7 @@ import { createDriving, SIM_START } from './driving.js?v=29';
 import { fetchRoute, createNav, fmtDist } from './nav.js?v=16';
 import { fetchFlags, submitReport, submitFeedback, rptKey, FLAG_MIN, HIDE_MIN } from './reports.js?v=3';
 import { CHANGELOG } from './changelog.js?v=1';
-import { track } from './analytics.js?v=2';
+import { track } from './analytics.js?v=3';
 
 const $ = (id) => document.getElementById(id);
 const TOPN = 5;
@@ -91,7 +91,13 @@ map = new maplibregl.Map({
 });
 // resolves once the map is first usable; map-touching bootstrap awaits this.
 let mapReady = false;
-const mapLoaded = new Promise((res) => map.on('load', () => { mapReady = true; installLayers(); res(); }));
+const mapLoaded = new Promise((res) => map.on('load', () => {
+  mapReady = true; installLayers(); res();
+  // tells the boot splash the map is painted; flag covers the case where the
+  // splash script initialises after this fires
+  window.__pdMapReady = true;
+  document.dispatchEvent(new Event('pd:map-ready'));
+}));
 
 const EMPTY_FC = { type: 'FeatureCollection', features: [] };
 // All custom sources/layers live here. setStyle (theme swap) wipes them, so this is re-run on
@@ -217,6 +223,18 @@ let activeCity = DEFAULT_CITY;
 // Set once the first-visit picker sends us somewhere: it suppresses the best-effort geolocation
 // recenter below so an incoming GPS fix can't yank the map off the city the user just tapped.
 let cityChosen = false;
+
+// Boot-UI gate. The location permission sheet must not appear until the splash has
+// driven off AND the city picker (when shown) is resolved — stacking a native
+// permission dialog on top of the picker is disruptive, and if the user then taps a
+// city the fix gets discarded anyway. initWelcome() below owns opening this gate.
+let openBootGate;
+const bootUISettled = new Promise((res) => { openBootGate = res; });
+// resolves once the boot splash has removed itself (immediately if there isn't one)
+const splashCleared = () =>
+  (window.__pdSplashDone || !document.getElementById('pdSplash'))
+    ? Promise.resolve()
+    : new Promise((r) => document.addEventListener('pd:splash-done', r, { once: true }));
 const loadedCities = new Set();
 function pushBlocks(arr) { for (const b of arr) blocks.push(b); }
 
@@ -352,6 +370,13 @@ async function pollKirkLive() {
 
   if (params.get('dest')) { run(null, true); return; }   // text-search deep link
 
+  // Hold the permission prompt until the splash is gone and the picker is answered,
+  // so the boot reads: animation -> map -> city picker -> location prompt.
+  await bootUISettled;
+  // They just told us which city they're in, and the fix below would be discarded by
+  // the cityChosen guard regardless — so don't spend a permission prompt on it.
+  if (cityChosen) return;
+
   // Best-effort recenter, capped at 5s so a slow or ignored permission prompt never stalls boot.
   const pos = await Promise.race([
     getPosition().catch(() => null),
@@ -383,8 +408,23 @@ function getPosition() {
 // not a filter — so a bare "Main St" resolves locally, but "gum wall seattle" still jumps
 // to Seattle even while you're viewing Vancouver.
 const GEO_CCS = [...new Set(Object.values(CITIES).map((c) => c.geo.cc))].join(',');
+// Pull the coarse place fields out of a Nominatim hit. City / state / country are kept
+// SEPARATE rather than pre-joined so callers can decide how much to show — displayPlace()
+// needs to compare the state against the city to know whether it adds anything.
+// Deliberately never reads a.road / a.house_number: we don't want the street.
+function placeFields(hit) {
+  const a = hit.address || {};
+  return {
+    lat: parseFloat(hit.lat), lon: parseFloat(hit.lon),
+    city: a.city || a.town || a.village || a.municipality || a.county || null,
+    state: a.state || a.province || a.region || null,
+    country: a.country || null,
+  };
+}
 async function geocodeOne(q, biased) {
-  const p = new URLSearchParams({ format: 'json', limit: '1', countrycodes: GEO_CCS, q });
+  // addressdetails: only so an out-of-coverage hit can be named ("not in Portland yet").
+  // We read the town/state/country fields, never the street or house number.
+  const p = new URLSearchParams({ format: 'json', limit: '1', addressdetails: '1', countrycodes: GEO_CCS, q });
   if (biased) {
     const [[s, w], [n, e]] = (CITIES[activeCity] || CITIES[DEFAULT_CITY]).bounds;
     p.set('viewbox', `${w},${s},${e},${n}`);   // soft bias toward the current city (bounded=0)
@@ -394,7 +434,21 @@ async function geocodeOne(q, biased) {
   // as `busy` so run() can tell "server rate-limited us" from "place not found".
   if (!r.ok) { const e = new Error('geocode ' + r.status); e.busy = r.status === 429 || r.status === 503; throw e; }
   const j = await r.json();
-  return j.length ? { lat: parseFloat(j[0].lat), lon: parseFloat(j[0].lon), name: j[0].display_name } : null;
+  if (!j.length) return null;
+  return { ...placeFields(j[0]), name: j[0].display_name };
+}
+// Last-resort lookup with the country filter OFF, used ONLY when the normal search finds
+// nothing. It answers "does this place exist somewhere we don't cover?" so a Berlin or
+// Sydney search can say "not available there yet" instead of the misleading "couldn't find
+// that place". addressdetails gives us the town/country to name in the message — we read
+// only those coarse fields, never the road or house number.
+async function geocodeAnywhere(q) {
+  const p = new URLSearchParams({ format: 'json', limit: '1', addressdetails: '1', q });
+  const r = await fetch('https://nominatim.openstreetmap.org/search?' + p.toString(), { headers: { 'Accept-Language': 'en' } });
+  if (!r.ok) return null;                       // best-effort: a failure here just falls back to "not found"
+  const j = await r.json();
+  if (!j.length) return null;
+  return placeFields(j[0]);
 }
 // Try local-biased first, then widen to any covered city if that finds nothing.
 async function geocodeWide(q) { return (await geocodeOne(q, true)) || geocodeOne(q, false); }
@@ -512,7 +566,19 @@ async function run(preLoc, isNew) {
       return;
     } finally { $('searchform').classList.remove('loading'); }
   }
-  if (!loc) { setStatus('Could not find that place. Try an address or nearby landmark.'); return; }
+  // Nothing in a covered country — but the place may still exist elsewhere. Check before
+  // claiming we couldn't find it, so "Berlin" gets "not available there yet" and only a
+  // genuine typo gets "couldn't find that".
+  if (!loc) {
+    const away = await geocodeAnywhere(q);
+    if (away) { showNoCoverage(away); return; }
+    setStatus('Could not find that place. Try an address or nearby landmark.');
+    return;
+  }
+  // Resolved inside the US or Canada, but outside the five metros we have data for —
+  // Portland, Toronto, anywhere. Without this the map would rank the CURRENT city's
+  // meters against a destination hundreds of miles away and present it as a real answer.
+  if (!cityAt(loc.lat, loc.lon)) { showNoCoverage(loc); return; }
   driving?.setFollow(false);   // searching = looking elsewhere; let the map rest on the destination
   lastLoc = loc;
   addRecent(loc, q);
@@ -584,14 +650,35 @@ function hideRecents() { $('recents').hidden = true; }
 // so local streets rank first while an explicit "gum wall seattle" still surfaces.
 let suggestSeq = 0, suggestTimer = null, suggestItems = [];
 
+// Country of the city currently on screen — the stand-in for "where the user is", which is
+// what Google keys its domestic/foreign rule on. Photon spells countries out, so compare
+// against the same spelling it returns.
+const CC_NAME = { ca: 'Canada', us: 'United States' };
+// Display-only rename, applied after the domestic comparison above so the matching still
+// works on Photon's own string. Google Maps writes "USA"; everywhere else it spells out.
+const COUNTRY_DISPLAY = { 'United States': 'USA' };
+const viewerCountry = () => CC_NAME[(CITIES[activeCity] || CITIES[DEFAULT_CITY]).geo.cc] || '';
+
 function featToSuggest(f) {
   const p = f.properties || {}, c = f.geometry && f.geometry.coordinates;
   if (!c) return null;
   const name = p.name || [p.housenumber, p.street].filter(Boolean).join(' ');
   if (!name) return null;
-  // secondary line: street (when the name isn't already it), then area/city/state — deduped
-  const sub = [p.name && p.street ? p.street : null, p.district, p.city, p.state, p.postcode]
-    .filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).slice(0, 3).join(', ');
+  const n = (s) => String(s || '').toLowerCase().trim();
+  // Secondary line, following Google's own address formatting: street (only when it isn't
+  // already the title), then city, state, country — fine to coarse, no district, no
+  // postcode. Country is dropped when it's the viewer's own, which is why Google shows
+  // "Victoria, British Columbia" but "Portland, Oregon, USA" to the same Canadian user.
+  const foreignCountry = p.country && n(p.country) !== n(viewerCountry()) ? p.country : null;
+  let parts = [p.name && p.street ? p.street : null, p.city, p.state, foreignCountry]
+    .filter(Boolean)
+    .filter((v) => n(v) !== n(name))                                   // don't echo the title
+    .filter((v, i, a) => a.findIndex((x) => n(x) === n(v)) === i);     // "Singapore, Singapore"
+  // Over three parts, the street is the first to go: it's the least useful thing for telling
+  // two same-named places apart, and keeping it would push the country off the end of the
+  // ellipsis — the exact reason a hit in Minsk read as though it were around the corner.
+  if (parts.length > 3) parts = parts.slice(1);
+  const sub = parts.slice(0, 3).map((v) => COUNTRY_DISPLAY[v] || v).join(', ');
   return { label: name, sub, lat: c[1], lon: c[0] };
 }
 
@@ -617,7 +704,18 @@ async function fetchSuggest(q) {
   catch { return; }                       // network hiccup — leave the panel as-is
   if (seq !== suggestSeq) return;         // a newer keystroke (or a clear) superseded this
   if ($('dest').value.trim().length < 2) return;
-  renderSuggest(feats.map(featToSuggest).filter(Boolean));
+  // Collapse rows that would render identically. Photon returns Singapore the country, the
+  // city and the island as three separate hits with every address field null — three rows a
+  // person cannot tell apart or choose between. Google dedupes on the displayed strings for
+  // the same reason; the first hit wins because Photon already ranks them.
+  const seen = new Set();
+  const items = feats.map(featToSuggest).filter(Boolean).filter((s) => {
+    const key = s.label + '|' + s.sub;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  renderSuggest(items);
 }
 
 // typing drives the panel: <2 chars → recents, otherwise debounced suggestions
@@ -1318,6 +1416,7 @@ $('mnClose').addEventListener('click', closeMenu);
 window.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (!$('fbsheet').hidden) { closeFbSheet(); return; }
+  if (!$('nasheet').hidden) { closeNaSheet(); return; }
   if ($('privacy').classList.contains('open')) { $('privacy').classList.remove('open'); return; }
   if ($('changelog').classList.contains('open')) { $('changelog').classList.remove('open'); return; }
   if ($('menupanel').classList.contains('open')) closeMenu();
@@ -1370,6 +1469,77 @@ if (vvp) {
   vvp.addEventListener('scroll', syncKeyboardInset);
 }
 function closeFbSheet() { $('fbsheet').hidden = true; syncKeyboardInset(); }
+
+// ---- "not available there yet" -----------------------------------------------
+// A searched place that's real but outside our five metros. Naming it matters: "not
+// available in Portland yet" tells you the app works and just doesn't reach you, where
+// a bare "couldn't find that" reads as a broken search box.
+let naPlace = null;
+// Name a place the way a person would: the place, then the biggest thing that pins it down.
+// Take the two most specific non-duplicate parts of city -> state -> country:
+//
+//   Vancouver / Washington / United States  -> "Vancouver, Washington"   (state disambiguates)
+//   Lisbon    / --         / Portugal       -> "Lisbon, Portugal"        (no state to use)
+//   --        / Tokyo      / Japan          -> "Tokyo, Japan"            (city-states have no city)
+//   Singapore / Singapore  / Singapore      -> "Singapore"               (all three collapse)
+//
+// The duplicate check is what keeps "Lisbon, Lisbon" and "Singapore, Singapore" out; it
+// normalizes case and accents, and Accept-Language: en on both lookups means the fields
+// come back in one language so the comparison can actually match.
+//
+// Returns null when Nominatim gives us nothing usable (a lake, a peak, a bare postcode);
+// callers choose their own fallback wording rather than inheriting a vague phrase.
+const normPlace = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+function displayPlace(p) {
+  if (!p) return null;
+  const parts = [];
+  const add = (v) => { if (v && !parts.some((x) => normPlace(x) === normPlace(v))) parts.push(v); };
+  add(p.city);
+  add(p.state);
+  if (parts.length < 2) add(p.country);   // country only earns its slot when the state didn't
+  return parts.slice(0, 2).join(', ') || null;
+}
+// "Vancouver, Seattle, San Francisco, San Jose and Kirkland" — built from the registry so
+// adding a city updates this sentence for free. It's the fourth place the list appears
+// (menu, page title, coverage sheet, here); the other three are static markup, this one
+// doesn't have to be.
+function coverageSentence() {
+  const names = Object.values(CITIES).map((c) => c.name);
+  return names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+}
+function showNoCoverage(p) {
+  naPlace = p;
+  // The heading carries the place; the body carries the coverage. Neither repeats the
+  // other, which is what let the third type tier go.
+  // Heading takes the bare city so it stays one line on a phone; the full "Portland,
+  // Oregon" form is saved for the request message, where the disambiguation actually
+  // matters because it lands in an inbox out of context.
+  const city = p.city || p.state || p.country;
+  $('naTitle').textContent = city ? `No data for ${city} yet.` : 'No data for that area yet.';
+  $('naSub').textContent = `Park Daddy currently works in ${coverageSentence()}.`;
+  closeSpotCard();
+  $('nasheet').hidden = false;
+  // Coarse place only — town, state/province, country. Never the address that was typed.
+  // This is the demand signal for what to build next (see the privacy policy).
+  track('search_out_of_coverage', { city: p.city || null, state: p.state || null, country: p.country || null });
+}
+function closeNaSheet() { $('nasheet').hidden = true; naPlace = null; syncKeyboardInset(); }
+$('naClose').addEventListener('click', closeNaSheet);
+// Hand off to the existing feedback pipe rather than build a second one — prefilled so
+// the ask is one tap plus an email, and still fully editable before it sends.
+$('naRequest').addEventListener('click', () => {
+  const label = displayPlace(naPlace) || 'my city';
+  track('city_requested', { city: naPlace?.city || null, state: naPlace?.state || null, country: naPlace?.country || null });
+  closeNaSheet();
+  // Short and warm — it's a request from one person to another, and it lands in the same
+  // inbox as free-form feedback. Still editable before it sends.
+  $('fbText').value = `Please add ${label} 🙏`;
+  $('fbContact').value = ''; setFbTextError(null); setFbError(null);
+  $('fbSubmit').textContent = 'Send feedback';
+  updateFbSubmit();
+  $('fbsheet').hidden = false;
+  $('fbContact').focus();   // message is written for them; the email is what's still missing
+});
 
 $('mnFeedback').addEventListener('click', () => {
   closeMenu();
@@ -1536,12 +1706,25 @@ function initLiveLabels() {
 // leaving whatever city geolocation picked. Deep links (?lat/?lon or ?dest) skip it entirely.
 (function initWelcome() {
   const el = document.getElementById('welcome');
-  if (!el) return;
+  // Every early return must still open the boot gate, or the location prompt —
+  // which now waits on it — would never fire at all.
+  if (!el) { openBootGate(); return; }
   const WELCOME_KEY = 'pd_welcome_seen';
   const force = params.get('welcome') === '1';   // local override to preview the picker after it's been seen
-  if (!force && (store.get(WELCOME_KEY) || params.get('dest') || params.get('lat'))) return;
-  el.classList.add('show');
-  const dismiss = () => { el.classList.remove('show'); store.set(WELCOME_KEY, '1'); };
+  if (!force && (store.get(WELCOME_KEY) || params.get('dest') || params.get('lat'))) {
+    splashCleared().then(openBootGate);          // no picker: prompt once the splash clears
+    return;
+  }
+
+  // Hold the picker until the boot splash has driven off, then let the map read
+  // for a beat before the sheet rises. Revealing it at parse time (as this used
+  // to) meant the sheet was already fully up behind the splash, so its wcRise
+  // entrance was never actually seen.
+  const BEAT = 550;   // hold on the bare map before the sheet enters
+  splashCleared().then(() => setTimeout(() => el.classList.add('show'), BEAT));
+  // Answering the picker — by tapping a city, the scrim, or Esc — is what releases
+  // the location prompt.
+  const dismiss = () => { el.classList.remove('show'); store.set(WELCOME_KEY, '1'); openBootGate(); };
   el.querySelectorAll('.wc-row').forEach((row) => {
     row.addEventListener('click', () => { dismiss(); goToCity(row.getAttribute('data-city')); });
   });
