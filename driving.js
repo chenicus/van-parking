@@ -77,6 +77,10 @@ export function createDriving({ map, onFix, onActiveChange, onFollowChange, bear
   // along the true heading, so it reads screen-up in heading-up mode and along-heading when north-up.
   const chevEl = document.createElement('div');
   chevEl.innerHTML = '<div class="chevwrap"><div class="chev"></div></div>';
+  // Markers share one stacking context and paint in DOM order, so price pills — appended fresh on
+  // every refresh, i.e. after the chevron — buried the car. Sit above them all: the highest marker
+  // z-index in play is a selected pill (500, labels.js) and the destination pin (3, app.js).
+  chevEl.style.zIndex = '900';
   const chev = new maplibregl.Marker({ element: chevEl, rotationAlignment: 'map', pitchAlignment: 'map' });
 
   // Ease the map onto the car (and to the mode's bearing). MapLibre interpolates center + bearing

@@ -621,6 +621,14 @@
   .fb-field.err:focus { border-color: #ff3b30; }
   .fb-err { color: #ff3b30; font-size: var(--fs-caption); letter-spacing: -.1px; margin: 6px 2px 0; }
   .fb-err[hidden] { display: none; }
+  /* the on-screen keyboard shrinks the visual viewport but not the layout viewport, so a
+     bottom:0 sheet ends up buried underneath it. --kb is the keyboard inset (mirrored from
+     visualViewport in app.js while the sheet is open) — lifting by it keeps the message,
+     email and Send button all on screen. */
+  #fbsheet { bottom: var(--kb, 0px); max-height: calc(100% - var(--kb, 0px) - 12px); overflow-y: auto; }
+  /* iOS Safari auto-zooms the page on focusing any field under 16px — the app's 15px body
+     size would do exactly that, so the feedback fields opt up to 16px. */
+  .fb-field { font-size: 16px; }
 
   /* ---- report sheet (reasons + photo) ---- */
   .rs-reasons { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }

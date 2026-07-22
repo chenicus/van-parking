@@ -1274,7 +1274,7 @@ $('menubtn').addEventListener('click', () => {
 $('mnClose').addEventListener('click', closeMenu);
 window.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  if (!$('fbsheet').hidden) { $('fbsheet').hidden = true; return; }
+  if (!$('fbsheet').hidden) { closeFbSheet(); return; }
   if ($('changelog').classList.contains('open')) { $('changelog').classList.remove('open'); return; }
   if ($('menupanel').classList.contains('open')) closeMenu();
 });
@@ -1309,6 +1309,21 @@ function updateFbSubmit() {
 $('fbText').addEventListener('input', () => { setFbTextError(null); updateFbSubmit(); });
 $('fbContact').addEventListener('input', () => { setFbError(null); updateFbSubmit(); });
 
+// The keyboard shrinks visualViewport but leaves the layout viewport where it was, so a
+// bottom-anchored sheet sits behind it. Mirror the keyboard height into --kb while the
+// feedback sheet is open (CSS lifts the sheet by it); zero it out when it closes.
+const vvp = window.visualViewport;
+function syncKeyboardInset() {
+  if (!vvp) return;
+  const kb = $('fbsheet').hidden ? 0 : Math.max(0, innerHeight - vvp.height - vvp.offsetTop);
+  document.documentElement.style.setProperty('--kb', kb + 'px');
+}
+if (vvp) {
+  vvp.addEventListener('resize', syncKeyboardInset);
+  vvp.addEventListener('scroll', syncKeyboardInset);
+}
+function closeFbSheet() { $('fbsheet').hidden = true; syncKeyboardInset(); }
+
 $('mnFeedback').addEventListener('click', () => {
   closeMenu();
   $('fbText').value = ''; $('fbContact').value = ''; setFbTextError(null); setFbError(null);
@@ -1317,7 +1332,7 @@ $('mnFeedback').addEventListener('click', () => {
   $('fbsheet').hidden = false;
   $('fbText').focus();
 });
-$('fbClose').addEventListener('click', () => { $('fbsheet').hidden = true; });
+$('fbClose').addEventListener('click', closeFbSheet);
 $('fbSubmit').addEventListener('click', async () => {
   const message = $('fbText').value.trim();
   const contact = $('fbContact').value.trim();
@@ -1329,7 +1344,7 @@ $('fbSubmit').addEventListener('click', async () => {
   $('fbSubmit').disabled = true; $('fbSubmit').textContent = 'Sending…';
   try {
     await submitFeedback({ message, contact });
-    $('fbsheet').hidden = true;
+    closeFbSheet();
     toast('Thanks — feedback sent. 💛');
   } catch (e) {
     console.warn('[feedback] submit failed', e);
