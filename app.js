@@ -1,10 +1,10 @@
 import { rankMeters, rateNow, limitNow, bandRateNow, distMeters, ENF_START, MID, ENF_END, prohibitionWindowsForDay, prohibitionNow } from './rank.js?v=15';
 import { buildBlocks, buildSeattleBlocks, buildSeattleFreeBlocks, buildSFBlocks, buildSanJoseBlocks, buildKirklandBlocks, createLabelLayer, fmtLimit, bucket } from './labels.js?v=35';
-import { CITIES, cityAt, DEFAULT_CITY } from './cities.js?v=8';
+import { CITIES, cityAt, DEFAULT_CITY, newCities } from './cities.js?v=9';
 import { createDriving, SIM_START } from './driving.js?v=29';
 import { fetchRoute, createNav, fmtDist } from './nav.js?v=16';
 import { fetchFlags, submitReport, submitFeedback, rptKey, FLAG_MIN, HIDE_MIN } from './reports.js?v=3';
-import { CHANGELOG } from './changelog.js?v=1';
+import { CHANGELOG } from './changelog.js?v=2';
 import { track } from './analytics.js?v=3';
 
 const $ = (id) => document.getElementById(id);
@@ -549,7 +549,18 @@ function renderFlag(b) {
   $('rlSub').textContent = b._label || (b.isFree ? 'Free spot' : 'Metered spot');
   $('rlList').innerHTML = f.items.map(reportRow).join('');
 }
-function closeReportList() { $('reportlist').classList.remove('open'); }
+// Opening the list drops the spot card and raises the list in its place — the same swap
+// the menu does with What's new. Back reverses it. The `cardBlock` guard is what keeps
+// closeSpotCard() from resurrecting the card: it nulls cardBlock before calling this.
+function openReportList() {
+  $('spotcard').hidden = true;
+  $('reportlist').classList.add('open');
+}
+function closeReportList() {
+  const wasOpen = $('reportlist').classList.contains('open');
+  $('reportlist').classList.remove('open');
+  if (wasOpen && cardBlock) $('spotcard').hidden = false;
+}
 
 let current = [];
 async function run(preLoc, isNew) {
@@ -1317,7 +1328,7 @@ document.addEventListener('click', (e) => {
 }, true);
 
 // tap the summary line → slide the full report list in; back returns to the card
-$('scflag').addEventListener('click', () => { if (!$('scflag').hidden) $('reportlist').classList.add('open'); });
+$('scflag').addEventListener('click', () => { if (!$('scflag').hidden) openReportList(); });
 $('rlBack').addEventListener('click', closeReportList);
 
 // ---- report flow -------------------------------------------------------------
@@ -1399,14 +1410,49 @@ $('rsSubmit').addEventListener('click', async () => {
   }
 });
 
+// ---- city lists, rendered from the registry -------------------------------------
+// The first-run picker and the menu's "Available cities" grid were both hand-written
+// markup listing the same cities. San Jose shipped in the registry, the menu, the page
+// title and the coverage sentence — but not the picker, so for nine days anyone opening
+// the app in San Jose had to choose a city they weren't in. Both now render from CITIES,
+// which is the only thing that actually stops that recurring.
+const CHEV_WC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+const PIN_WC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+function renderCityLists() {
+  const cities = Object.entries(CITIES);
+  const isNew = newCities();
+  $('mnCities').innerHTML = cities
+    .map(([, c]) => `<div class="mn-city">${c.flag} ${c.name}</div>`).join('');
+  $('wcRows').innerHTML = cities.map(([key, c]) => {
+    const cc = c.geo.cc;
+    const badges = (isNew.has(key) ? '<span class="wc-new">New</span>' : '')
+      + (c.live ? '<span class="wc-live"><i></i>Live spots</span>' : '');
+    return `<button class="wc-row" type="button" data-city="${key}">` +
+      `<span class="wc-flag"><img src="https://flagcdn.com/w80/${cc}.png" srcset="https://flagcdn.com/w160/${cc}.png 2x" alt="" loading="lazy"></span>` +
+      `<span><span class="wc-nmrow"><span class="wc-nm">${c.name}</span>${badges}</span><span class="wc-rg">${c.region}</span></span>` +
+      `<span class="wc-chev">${CHEV_WC}</span></button>`;
+  }).join('') +
+    // The way out for everyone else. The request-a-city flow already existed but only
+    // opened after a search missed, i.e. after you'd been made to pick a city you're not
+    // in — the one moment someone most wants to say "I'm in Portland" was the one moment
+    // they couldn't.
+    `<button class="wc-row wc-ask" type="button" id="wcAsk">` +
+    `<span class="wc-flag wc-askic">${PIN_WC}</span>` +
+    `<span><span class="wc-nmrow"><span class="wc-nm">My city isn't here</span></span>` +
+    `<span class="wc-rg">Tell me where to go next</span></span>` +
+    `<span class="wc-chev">${CHEV_WC}</span></button>`;
+}
+renderCityLists();
+
 // ---- sheet scrim ---------------------------------------------------------------
-// Every sheet that wants the map dimmed behind it, minus the price ones: on the spot card
-// (and the report list that drills out of it) you're reading the card against the street
-// it describes, so the map stays bright. Driven by a MutationObserver rather than a call
-// at each open/close — those sites are spread across five features, and the last three
-// times a sheet was added the pattern was copied and one of its exits was missed.
-const SCRIM_SHEETS = ['reportsheet', 'fbsheet', 'nasheet'];   // hidden attribute
-const SCRIM_PANELS = ['menupanel', 'changelog', 'privacy'];   // .open class
+// Every sheet that wants the map dimmed behind it, minus the price one: on the spot card
+// you're reading the card against the street it describes, so the map stays bright. The
+// report list is on the list — it now replaces the spot card rather than covering it, so
+// there's no price left on screen to read against. Driven by a MutationObserver rather
+// than a call at each open/close — those sites are spread across five features, and the
+// last three times a sheet was added the pattern was copied and one exit was missed.
+const SCRIM_SHEETS = ['reportsheet', 'fbsheet', 'nasheet'];               // hidden attribute
+const SCRIM_PANELS = ['menupanel', 'changelog', 'privacy', 'reportlist']; // .open class
 function syncScrim() {
   const on = SCRIM_SHEETS.some((id) => !$(id).hidden)
           || SCRIM_PANELS.some((id) => $(id).classList.contains('open'));
@@ -1426,6 +1472,8 @@ $('scrim').addEventListener('click', () => {
   if (!$('fbsheet').hidden) { closeFbSheet(); return; }
   if (!$('nasheet').hidden) { closeNaSheet(); return; }
   if (!$('reportsheet').hidden) { closeReport(true); return; }
+  // closeSpotCard nulls cardBlock first, so the list closes without the card popping back
+  if ($('reportlist').classList.contains('open')) { closeSpotCard(); return; }
   closeMenu();
 });
 
@@ -1504,6 +1552,20 @@ if (vvp) {
   vvp.addEventListener('scroll', syncKeyboardInset);
 }
 function closeFbSheet() { $('fbsheet').hidden = true; fbBackTo = null; syncKeyboardInset(); }
+// One way in, three callers: the menu, "Request city", and the first-run picker's "my city
+// isn't here". Each used to repeat the same five lines of reset, and the prefilled ones
+// only differ in what's already typed and which field still needs the user.
+// `backTo` is what the header chevron returns to — null when there's nothing behind it.
+function openFeedback({ text = '', backTo = null, focus = 'text' } = {}) {
+  $('fbText').value = text;
+  $('fbContact').value = '';
+  setFbTextError(null); setFbError(null);
+  $('fbSubmit').textContent = 'Send feedback';
+  updateFbSubmit();
+  fbBackTo = backTo;
+  $('fbsheet').hidden = false;
+  $(focus === 'contact' ? 'fbContact' : 'fbText').focus();
+}
 // The feedback sheet is always a drill-down, so its header chevron goes back rather than
 // just dismissing — whoever opened it leaves behind the way to return (the menu, or the
 // no-coverage sheet with its place intact). Falls back to a plain close if nothing did.
@@ -1593,25 +1655,15 @@ $('naRequest').addEventListener('click', () => {
   track('city_requested', { city: p?.city || null, state: p?.state || null, country: p?.country || null });
   closeNaSheet();
   // Short and warm — it's a request from one person to another, and it lands in the same
-  // inbox as free-form feedback. Still editable before it sends.
-  $('fbText').value = `Please add ${label} 🙏`;
-  $('fbContact').value = ''; setFbTextError(null); setFbError(null);
-  $('fbSubmit').textContent = 'Send feedback';
-  updateFbSubmit();
-  // back returns to the sheet that sent us here, with the same place still named on it
-  fbBackTo = () => openNaSheet(p);
-  $('fbsheet').hidden = false;
-  $('fbContact').focus();   // message is written for them; the email is what's still missing
+  // inbox as free-form feedback. Still editable before it sends. Focus goes to the email
+  // because the message is already written for them; back returns to the sheet that sent
+  // us here, with the same place still named on it.
+  openFeedback({ text: `Please add ${label} 🙏`, backTo: () => openNaSheet(p), focus: 'contact' });
 });
 
 $('mnFeedback').addEventListener('click', () => {
   closeMenu();
-  $('fbText').value = ''; $('fbContact').value = ''; setFbTextError(null); setFbError(null);
-  $('fbSubmit').textContent = 'Send feedback';
-  updateFbSubmit();
-  fbBackTo = openMenu;
-  $('fbsheet').hidden = false;
-  $('fbText').focus();
+  openFeedback({ backTo: openMenu });
 });
 $('fbBack').addEventListener('click', fbBack);
 $('fbSubmit').addEventListener('click', async () => {
@@ -1791,7 +1843,14 @@ function initLiveLabels() {
   // Answering the picker — by tapping a city, the scrim, or Esc — is what releases
   // the location prompt.
   const dismiss = () => { el.classList.remove('show'); store.set(WELCOME_KEY, '1'); openBootGate(); };
-  el.querySelectorAll('.wc-row').forEach((row) => {
+  // [data-city] only — the "my city isn't here" row is a .wc-row too, and without the
+  // attribute filter it would fall through to goToCity(null).
+  $('wcAsk').addEventListener('click', () => {
+    track('city_requested', { city: null, state: null, country: null, from: 'welcome' });
+    dismiss();
+    openFeedback({ text: 'Please add ' });   // they finish the sentence; nothing to go back to
+  });
+  el.querySelectorAll('.wc-row[data-city]').forEach((row) => {
     row.addEventListener('click', () => { dismiss(); goToCity(row.getAttribute('data-city')); });
   });
   el.addEventListener('click', (e) => { if (e.target === el) dismiss(); });

@@ -606,33 +606,30 @@
   .sc-flag b { font-weight: 700; }
   .sc-flag .fl-chev { width: 1.1em; height: 1.1em; stroke: currentColor; fill: none; flex: none; opacity: .8; }
 
-  /* ---- report list — slides in from the right as its own modal ---- */
+  /* ---- sliding panels (report list, menu, and the menu's destinations) ---- */
+  /* All rise and fall like the sheets they sit among. The report list was the last panel
+     still sliding in from the right; it drills out of the spot card rather than the menu,
+     which was the argument for keeping it different, but "reached from somewhere else"
+     isn't something the user is tracking — they just saw one panel behave unlike the
+     rest. One motion for every panel now, so this base rule is the whole story. */
   .rlpanel { position: absolute; z-index: 660; left: 0; right: 0; bottom: 0;
     background: var(--sheet-strong); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
     border-radius: 22px 22px 0 0; box-shadow: var(--shadow); max-height: 72vh; overflow-y: auto;
     padding: 8px 20px calc(env(safe-area-inset-bottom, 0px) + 20px);
-    transform: translateX(100%); visibility: hidden; will-change: transform;
-    transition: transform .28s cubic-bezier(.4,0,.2,1), visibility 0s .28s; }
-  .rlpanel.open { transform: translateX(0); visibility: visible;
-    transition: transform .28s cubic-bezier(.4,0,.2,1); }
-  /* The menu and its two destinations are all true bottom sheets — they rise and fall the
-     way #welcome, #spotcard and #fbsheet do. What's new and Privacy used to slide in from
-     the right ON TOP of the menu, which read as a layer stacked over it rather than the
-     place you'd just chosen to go; the menu now drops away and the destination rises in
-     its place, exactly like the menu → feedback handoff. Only the padding differs: these
-     two keep the denser .rlpanel padding for their long prose. */
+    transform: translateY(110%); visibility: hidden; will-change: transform;
+    transition: transform .36s cubic-bezier(.32,.72,0,1), visibility 0s .36s; }
+  .rlpanel.open { transform: translateY(0); visibility: visible;
+    transition: transform .36s cubic-bezier(.32,.72,0,1); }
+  /* The menu keeps the sheet padding/radius of #welcome and #spotcard; the drill-downs
+     keep .rlpanel's denser padding for their long prose. */
   #menupanel { padding: 16px 16px calc(env(safe-area-inset-bottom, 0px) + 16px); }
-  /* ...and the same LAYERING, which is what still gave the handoff away. Feedback is a
-     .spotcard at 650, so the menu falls in FRONT of it; these two sat at .rlpanel's 660
-     and, being later in the DOM, painted over the falling menu instead — same two sheets,
-     same motion, crossing read backwards. Dropping them to the sheet layer makes all
-     three identical. #reportlist stays at 660: it drills out of the spot card and has to
-     cover it. Both stay above the 640 scrim. */
+  /* LAYERING is the other half of a matching handoff: in every swap the sheet you're
+     LEAVING falls in front of the one arriving behind it. The menu (660) drops over its
+     destinations, and the spot card (650) drops over the report list — so the list sits
+     below it at 645, still clear of the 640 scrim. Get this backwards and the same curve
+     over the same distance still reads as a different transition. */
   #changelog, #privacy { z-index: 650; }
-  #menupanel, #changelog, #privacy {
-    transform: translateY(110%); transition: transform .36s cubic-bezier(.32,.72,0,1), visibility 0s .36s; }
-  #menupanel.open, #changelog.open, #privacy.open {
-    transform: translateY(0); transition: transform .36s cubic-bezier(.32,.72,0,1); }
+  #reportlist { z-index: 645; }
   .rl-head { display: flex; align-items: center; gap: 6px; padding: 6px 0 4px; }
   /* the top-level menu's title sits opposite its close button, flush with the sheet's
      own padding (like .sc-head in the spot card); drill-down headers (back arrow +
@@ -1087,13 +1084,7 @@ html.pd-arrive #map{animation:pdMapSettle .90s cubic-bezier(.2,0,0,1) .80s both}
     <button class="iconbtn dismiss" id="mnClose" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </div>
   <div class="mn-section-label">Available cities</div>
-  <div class="mn-cities">
-    <div class="mn-city">🇨🇦 Vancouver</div>
-    <div class="mn-city">🇺🇸 Seattle</div>
-    <div class="mn-city">🇺🇸 San Francisco</div>
-    <div class="mn-city">🇺🇸 San Jose</div>
-    <div class="mn-city">🇺🇸 Kirkland</div>
-  </div>
+  <div class="mn-cities" id="mnCities"></div>
   <div class="mn-rows">
     <button class="mn-row" id="mnFeedback" type="button">
       <svg viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
@@ -1282,6 +1273,13 @@ html.pd-arrive #map{animation:pdMapSettle .90s cubic-bezier(.2,0,0,1) .80s both}
     box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--green) 25%, transparent);
     animation: livePulse 2s ease-in-out infinite; }
   @media (prefers-reduced-motion: reduce) { .wc-live i { animation: none; } }
+  /* "My city isn't here" — a real row so it's findable, but dashed and muted so it never
+     competes with the cities above it for the eye. */
+  .wc-row.wc-ask { border-style: dashed; }
+  .wc-ask .wc-nm { color: var(--muted-strong); }
+  .wc-flag.wc-askic { display: grid; place-items: center; background: none; box-shadow: none;
+    color: var(--muted); }
+  .wc-flag.wc-askic svg { width: 20px; height: 20px; }
   .wc-chev { margin-left: auto; color: var(--muted); display: grid; place-items: center; }
   .wc-chev svg { width: 18px; height: 18px; }
   .wc-note { font-size: var(--fs-caption); line-height: 1.5; color: var(--muted);
@@ -1291,34 +1289,13 @@ html.pd-arrive #map{animation:pdMapSettle .90s cubic-bezier(.2,0,0,1) .80s both}
   <div class="wc-sheet">
     <div class="wc-title" id="wcTitle">Pick your city</div>
     <div class="wc-sub">Park Daddy shows metered rates as you drive.</div>
-    <div class="wc-rows">
-      <button class="wc-row" type="button" data-city="vancouver">
-        <span class="wc-flag"><img src="https://flagcdn.com/w80/ca.png" srcset="https://flagcdn.com/w160/ca.png 2x" alt="" loading="lazy"></span>
-        <span><span class="wc-nmrow"><span class="wc-nm">Vancouver</span></span><span class="wc-rg">British Columbia, Canada</span></span>
-        <span class="wc-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
-      </button>
-      <button class="wc-row" type="button" data-city="seattle">
-        <span class="wc-flag"><img src="https://flagcdn.com/w80/us.png" srcset="https://flagcdn.com/w160/us.png 2x" alt="" loading="lazy"></span>
-        <span><span class="wc-nmrow"><span class="wc-nm">Seattle</span><span class="wc-new">New</span></span><span class="wc-rg">Washington, USA</span></span>
-        <span class="wc-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
-      </button>
-      <button class="wc-row" type="button" data-city="sf">
-        <span class="wc-flag"><img src="https://flagcdn.com/w80/us.png" srcset="https://flagcdn.com/w160/us.png 2x" alt="" loading="lazy"></span>
-        <span><span class="wc-nmrow"><span class="wc-nm">San Francisco</span><span class="wc-new">New</span></span><span class="wc-rg">California, USA</span></span>
-        <span class="wc-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
-      </button>
-      <button class="wc-row" type="button" data-city="kirkland">
-        <span class="wc-flag"><img src="https://flagcdn.com/w80/us.png" srcset="https://flagcdn.com/w160/us.png 2x" alt="" loading="lazy"></span>
-        <span><span class="wc-nmrow"><span class="wc-nm">Kirkland</span><span class="wc-new">New</span><span class="wc-live"><i></i>Live spots</span></span><span class="wc-rg">Washington, USA</span></span>
-        <span class="wc-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
-      </button>
-    </div>
+    <div class="wc-rows" id="wcRows"></div>
     <div class="wc-note">Rates come from free, open city data, so it won't cover every street and can lag behind new signs — always check what's posted at the curb. Still very much a work in progress, so let me know if you have feedback!</div>
   </div>
 </div>
 
 <script src="vendor/maplibre-gl@4.7.1.js"></script>
-<script type="module" src="app.js?v=84"></script>
+<script type="module" src="app.js?v=85"></script>
 
 <!-- Cloudflare Web Analytics — privacy-friendly visitor + country tracking, no cookies -->
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js"

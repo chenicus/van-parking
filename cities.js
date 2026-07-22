@@ -4,9 +4,14 @@
 //
 // Datasets are geographically disjoint, so all loaded cities' blocks can live in one
 // array — the label layer filters by viewport regardless of origin.
+//
+// `name` / `region` / `flag` / `added` are what the UI reads: every city list in the app
+// (first-run picker, menu, the coverage sentence) is built from this object, so a city
+// can't appear in one and be missing from another. San Jose shipped absent from the
+// first-run picker for nine days because that list was hand-maintained markup.
 export const CITIES = {
   vancouver: {
-    name: 'Vancouver',
+    name: 'Vancouver', region: 'British Columbia, Canada', flag: '🇨🇦', added: '2026-07-06',
     center: [49.2606, -123.114], zoom: 13,
     bounds: [[49.19, -123.28], [49.33, -123.02]],   // [[south, west], [north, east]]
     data: [
@@ -18,7 +23,7 @@ export const CITIES = {
     geo: { cc: 'ca', suffix: 'Vancouver, BC' },
   },
   seattle: {
-    name: 'Seattle',
+    name: 'Seattle', region: 'Washington, USA', flag: '🇺🇸', added: '2026-07-10',
     center: [47.6062, -122.3321], zoom: 14,
     bounds: [[47.49, -122.44], [47.74, -122.23]],
     data: [
@@ -29,7 +34,7 @@ export const CITIES = {
     geo: { cc: 'us', suffix: 'Seattle, WA' },
   },
   sf: {
-    name: 'San Francisco',
+    name: 'San Francisco', region: 'California, USA', flag: '🇺🇸', added: '2026-07-11',
     center: [37.7749, -122.4194], zoom: 13,
     bounds: [[37.70, -122.53], [37.84, -122.35]],
     data: [
@@ -45,7 +50,7 @@ export const CITIES = {
     geo: { cc: 'us', suffix: 'San Francisco, CA' },
   },
   sanjose: {
-    name: 'San Jose',
+    name: 'San Jose', region: 'California, USA', flag: '🇺🇸', added: '2026-07-13',
     center: [37.3352, -121.8895], zoom: 15,
     bounds: [[37.30, -121.94], [37.38, -121.85]],
     data: [
@@ -58,7 +63,7 @@ export const CITIES = {
     geo: { cc: 'us', suffix: 'San Jose, CA' },
   },
   kirkland: {
-    name: 'Kirkland',
+    name: 'Kirkland', region: 'Washington, USA', flag: '🇺🇸', added: '2026-07-13',
     center: [47.6764, -122.2065], zoom: 16,
     bounds: [[47.65, -122.22], [47.70, -122.18]],
     data: [
@@ -85,3 +90,15 @@ export function cityAt(lat, lon) {
 }
 
 export const DEFAULT_CITY = 'vancouver';
+
+// Keys to badge NEW: the most recently added batch only, and only while it's still recent.
+// A badge on three of four rows points at nothing — this always marks the smallest set
+// that's actually newer than the rest, and stops marking anything once nothing is.
+const NEW_FOR_DAYS = 30;
+export function newCities(now = new Date()) {
+  const dates = Object.values(CITIES).map((c) => c.added).filter(Boolean).sort();
+  const newest = dates[dates.length - 1];
+  if (!newest) return new Set();
+  if ((now - new Date(newest + 'T00:00:00')) / 86400000 > NEW_FOR_DAYS) return new Set();
+  return new Set(Object.keys(CITIES).filter((k) => CITIES[k].added === newest));
+}
