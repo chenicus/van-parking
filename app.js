@@ -1,10 +1,10 @@
 import { rankMeters, rateNow, limitNow, bandRateNow, distMeters, ENF_START, MID, ENF_END, prohibitionWindowsForDay, prohibitionNow } from './rank.js?v=15';
 import { buildBlocks, buildSeattleBlocks, buildSeattleFreeBlocks, buildSFBlocks, buildSanJoseBlocks, buildKirklandBlocks, createLabelLayer, fmtLimit, bucket } from './labels.js?v=35';
-import { CITIES, cityAt, DEFAULT_CITY, newCities } from './cities.js?v=9';
+import { CITIES, cityAt, DEFAULT_CITY, newCities } from './cities.js?v=10';
 import { createDriving, SIM_START } from './driving.js?v=29';
 import { fetchRoute, createNav, fmtDist } from './nav.js?v=16';
 import { fetchFlags, submitReport, submitFeedback, rptKey, FLAG_MIN, HIDE_MIN } from './reports.js?v=3';
-import { CHANGELOG } from './changelog.js?v=2';
+import { CHANGELOG } from './changelog.js?v=3';
 import { track } from './analytics.js?v=3';
 
 const $ = (id) => document.getElementById(id);
@@ -1421,9 +1421,11 @@ const PIN_WC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strok
 function renderCityLists() {
   const cities = Object.entries(CITIES);
   const isNew = newCities();
+  // The menu lists everything we cover — that's a coverage claim, and `picker: false`
+  // doesn't make a city any less covered. Only the first-run picker filters.
   $('mnCities').innerHTML = cities
     .map(([, c]) => `<div class="mn-city">${c.flag} ${c.name}</div>`).join('');
-  $('wcRows').innerHTML = cities.map(([key, c]) => {
+  $('wcRows').innerHTML = cities.filter(([, c]) => c.picker !== false).map(([key, c]) => {
     const cc = c.geo.cc;
     const badges = (isNew.has(key) ? '<span class="wc-new">New</span>' : '')
       + (c.live ? '<span class="wc-live"><i></i>Live spots</span>' : '');

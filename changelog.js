@@ -3,7 +3,6 @@
 // top when you ship something people can actually notice; skip refactors and data refreshes.
 export const CHANGELOG = [
   { date: 'July 22, 2026', items: [
-    '<b>San Jose</b> now shows up in the first-run city picker, where it was missing.',
     "Can't find your city? Ask for it right from the picker.",
     'Menus and panels all open and close the same way, and dim the map behind them.',
   ] },

@@ -9,6 +9,13 @@
 // (first-run picker, menu, the coverage sentence) is built from this object, so a city
 // can't appear in one and be missing from another. San Jose shipped absent from the
 // first-run picker for nine days because that list was hand-maintained markup.
+//
+// `picker: false` is the one intentional exception: the city is fully supported — search
+// resolves there, the map draws it, the menu lists it as covered — it just isn't offered
+// as a "pick your city" destination. That list is for somewhere you'd choose to go; a few
+// blocks of one downtown is somewhere you're already standing, and it earns its way in
+// through search instead. Coverage claims (the menu, the coverage sentence, the page
+// title) deliberately ignore this flag — they'd be lying otherwise.
 export const CITIES = {
   vancouver: {
     name: 'Vancouver', region: 'British Columbia, Canada', flag: '🇨🇦', added: '2026-07-06',
@@ -50,6 +57,7 @@ export const CITIES = {
     geo: { cc: 'us', suffix: 'San Francisco, CA' },
   },
   sanjose: {
+    picker: false,
     name: 'San Jose', region: 'California, USA', flag: '🇺🇸', added: '2026-07-13',
     center: [37.3352, -121.8895], zoom: 15,
     bounds: [[37.30, -121.94], [37.38, -121.85]],
@@ -63,6 +71,7 @@ export const CITIES = {
     geo: { cc: 'us', suffix: 'San Jose, CA' },
   },
   kirkland: {
+    picker: false,
     name: 'Kirkland', region: 'Washington, USA', flag: '🇺🇸', added: '2026-07-13',
     center: [47.6764, -122.2065], zoom: 16,
     bounds: [[47.65, -122.22], [47.70, -122.18]],
