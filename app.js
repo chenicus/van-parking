@@ -1,6 +1,6 @@
 import { rankMeters, rateNow, limitNow, bandRateNow, distMeters, ENF_START, MID, ENF_END, prohibitionWindowsForDay, prohibitionNow } from './rank.js?v=15';
-import { buildBlocks, buildSeattleBlocks, buildSeattleFreeBlocks, buildSFBlocks, buildSanJoseBlocks, buildKirklandBlocks, createLabelLayer, fmtLimit, bucket } from './labels.js?v=35';
-import { CITIES, cityAt, DEFAULT_CITY, newCities } from './cities.js?v=10';
+import { buildBlocks, buildSeattleBlocks, buildSeattleFreeBlocks, buildSFBlocks, buildSanJoseBlocks, buildKirklandBlocks, createLabelLayer, fmtLimit, bucket } from './labels.js?v=36';
+import { CITIES, cityAt, DEFAULT_CITY, newCities } from './cities.js?v=11';
 import { createDriving, SIM_START } from './driving.js?v=29';
 import { fetchRoute, createNav, fmtDist } from './nav.js?v=16';
 import { fetchFlags, submitReport, submitFeedback, rptKey, FLAG_MIN, HIDE_MIN } from './reports.js?v=3';
@@ -25,14 +25,32 @@ const mockT = (() => {
   const m = (params.get('t') || '').match(/^([0-9]{1,2}):([0-9]{2})$/);
   return m ? parseInt(m[1]) * 60 + parseInt(m[2]) : null;
 })();
+// Wall-clock time in the CITY on screen, NOT the viewer's device. Parking rates flip on
+// the local hour and day, so "now" has to be the city's now: a friend in Lisbon looking
+// at Seattle was getting Seattle priced against Portugal's clock — eight hours ahead, so
+// mid-afternoon Seattle read as evening and the whole map showed free. Each city carries
+// a `tz`; we pull the parts through Intl in that zone. The active city is whichever
+// coverage box holds the map center (kept current on every moveend).
+function cityTz() { return (CITIES[activeCity] || CITIES[DEFAULT_CITY]).tz || 'America/Los_Angeles'; }
+function cityParts(d = new Date()) {
+  const p = new Intl.DateTimeFormat('en-US', {
+    timeZone: cityTz(), hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', weekday: 'short',
+  }).formatToParts(d).reduce((o, x) => (o[x.type] = x.value, o), {});
+  let hour = parseInt(p.hour, 10);
+  if (hour === 24) hour = 0;   // some engines render midnight as '24' under hour12:false
+  const dow = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[p.weekday];
+  return { y: +p.year, m: +p.month, d: +p.day, hour, min: +p.minute, dow };
+}
 function clockMins() {
   if (mockT != null) return mockT;
-  const d = new Date(); return d.getHours() * 60 + d.getMinutes();
+  const p = cityParts(); return p.hour * 60 + p.min;
 }
 // fixed assumed stay length (hours) — no longer user-set; used only to rank spots
 // (rush-hour tow-away overlap) when a destination is searched
 const trip = { mode: 'now', durH: 2, etaMins: null, setMins: null, setDate: null, userSet: false };
-function todayStr() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function todayStr() { const p = cityParts(); return `${p.y}-${String(p.m).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`; }
 function arrivalMins() {
   if (trip.mode === 'set' && trip.setMins != null) return trip.setMins;
   if (trip.mode === 'eta' && trip.etaMins != null) return trip.etaMins;
@@ -47,7 +65,7 @@ function isWeekend() {
     const day = new Date(y, m - 1, d).getDay();
     return day === 0 || day === 6;
   }
-  const day = new Date().getDay(); return day === 0 || day === 6;
+  const day = cityParts().dow; return day === 0 || day === 6;
 }
 // Day-of-week for Seattle's per-day rate bands (0=Sun … 6=Sat). ?dow=N overrides for
 // testing (e.g. ?dow=0 to see Sunday's free-everywhere), ?wknd=1 stands in for Saturday.
@@ -58,7 +76,7 @@ function dowNow() {
     const [y, m, d] = trip.setDate.split('-').map(Number);
     return new Date(y, m - 1, d).getDay();
   }
-  return new Date().getDay();
+  return cityParts().dow;
 }
 
 const darkMedia = window.matchMedia('(prefers-color-scheme: dark)');
@@ -1139,6 +1157,7 @@ function daySegments(b, wknd, dow) {
 }
 // friendly label for a prohibition zone code shown in the schedule
 const ZONE_LABEL = {
+  'TOW-AWAY': 'Tow-away',
   'NO STOPPING': 'No stopping', 'LOADING ZONE': 'Loading zone', 'CVLZ': 'Commercial loading',
   'PASSENGER ZONE': 'Passenger only', 'PERMIT PARKING ONLY': 'Permit only', 'TAXI ZONE': 'Taxi only',
   'MILITARY ZONE': 'Military only', 'POLICE ZONE': 'Police only', 'TOUR BUS ZONE': 'Tour bus only',
@@ -1161,7 +1180,35 @@ function seattleDaySegments(b, dow) {
   }
   if (cursor < 1440) segs.push({ from: cursor, to: 1440, rate: 0, limit: b.freeLimit || null });
   if (!segs.length) segs.push({ from: 0, to: 1440, rate: 0, limit: b.freeLimit || null });
-  return segs;
+  // A band block (SF) can still carry scheduled tow-away windows; carve them over the rate rows
+  // so the schedule reads "3–6pm Tow-away" instead of a price that isn't actually parkable.
+  return carveProhibitions(segs, prohibitionWindowsForDay(b, dow));
+}
+
+// Overlay today's [start, end, zone] no-park windows onto a rate schedule: split at every window
+// edge and mark each slice inside a window as tow (rate 0, zone label). Shared shape with
+// daySegments' output (from/to/rate/tow/zone/limit) so renderSchedule handles both.
+function carveProhibitions(segs, prohWins) {
+  if (!prohWins.length) return segs;
+  const bounds = new Set();
+  for (const s of segs) { bounds.add(s.from); bounds.add(s.to); }
+  for (const [s, e] of prohWins) { bounds.add(s); bounds.add(e); }
+  const pts = [...bounds].sort((x, y) => x - y);
+  const zoneAt = (m) => { const w = prohWins.find(([s, e]) => m >= s && m < e); return w ? w[2] : null; };
+  const baseAt = (m) => segs.find((s) => m >= s.from && m < s.to) || { rate: 0, limit: null };
+  const out = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const from = pts[i], to = pts[i + 1], mid = (from + to) / 2;
+    const zone = zoneAt(mid);
+    const base = baseAt(mid);
+    const seg = zone
+      ? { from, to, rate: 0, tow: true, zone, limit: null }
+      : { from, to, rate: base.rate, tow: false, zone: null, limit: base.limit };
+    const last = out[out.length - 1];
+    if (last && last.tow === seg.tow && last.rate === seg.rate && last.limit === seg.limit && last.zone === seg.zone) last.to = to;
+    else out.push(seg);
+  }
+  return out;
 }
 
 function segLabel(s) {

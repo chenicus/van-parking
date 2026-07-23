@@ -19,6 +19,7 @@
 export const CITIES = {
   vancouver: {
     name: 'Vancouver', region: 'British Columbia, Canada', flag: '🇨🇦', added: '2026-07-06',
+    tz: 'America/Vancouver',
     center: [49.2606, -123.114], zoom: 13,
     bounds: [[49.19, -123.28], [49.33, -123.02]],   // [[south, west], [north, east]]
     data: [
@@ -31,6 +32,7 @@ export const CITIES = {
   },
   seattle: {
     name: 'Seattle', region: 'Washington, USA', flag: '🇺🇸', added: '2026-07-10',
+    tz: 'America/Los_Angeles',
     center: [47.6062, -122.3321], zoom: 14,
     bounds: [[47.49, -122.44], [47.74, -122.23]],
     data: [
@@ -42,11 +44,12 @@ export const CITIES = {
   },
   sf: {
     name: 'San Francisco', region: 'California, USA', flag: '🇺🇸', added: '2026-07-11',
+    tz: 'America/Los_Angeles',
     center: [37.7749, -122.4194], zoom: 13,
     bounds: [[37.70, -122.53], [37.84, -122.35]],
     data: [
-      { url: 'data/sf-meters.json?v=1', kind: 'sf' },
-      { url: 'data/sf-free.json?v=1', kind: 'sf-free' },
+      { url: 'data/sf-meters.json?v=2', kind: 'sf' },
+      { url: 'data/sf-free.json?v=2', kind: 'sf-free' },
     ],
     // Point meters (drawn as dots, like Vancouver) but priced by time-of-day bands (like
     // Seattle's demand-responsive shape). No `rank`: its meters carry rate bands, not the
@@ -59,6 +62,7 @@ export const CITIES = {
   sanjose: {
     picker: false,
     name: 'San Jose', region: 'California, USA', flag: '🇺🇸', added: '2026-07-13',
+    tz: 'America/Los_Angeles',
     center: [37.3352, -121.8895], zoom: 15,
     bounds: [[37.30, -121.94], [37.38, -121.85]],
     data: [
@@ -73,6 +77,7 @@ export const CITIES = {
   kirkland: {
     picker: false,
     name: 'Kirkland', region: 'Washington, USA', flag: '🇺🇸', added: '2026-07-13',
+    tz: 'America/Los_Angeles',
     center: [47.6764, -122.2065], zoom: 16,
     bounds: [[47.65, -122.22], [47.70, -122.18]],
     data: [
