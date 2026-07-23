@@ -40,7 +40,9 @@ export function buildSFBlocks(records, idBase = 4e6) {
     bands: { wkd: o.wkd, sat: o.sat, sun: o.sun },
     limitMin: null,                                    // no current SF time-limit source (see build-sf.py)
     spaces: o.spaces, hblock: o.h,
-    rushes: [], card: false,                           // no meter-level rush windows in SF
+    rushes: [],                                        // SF has no meter-level rush windows…
+    prohibitions: o.proh || [],                        // …but scheduled tow-away zones ride the prohibition path (build-sf.py)
+    card: false,
   }));
 }
 
@@ -94,7 +96,9 @@ export function buildSeattleFreeBlocks(records, idBase = 3e6) {
     freeLimit: o.cat === 'tl' ? (o.limit || null) : null,   // time-limited: free but capped
     noPill: o.cat !== 'tl',                                  // unrestricted: draw the line, skip the pill
     cat: o.cat, spaces: o.spaces, hblock: o.h,
-    pts: [], rushes: [], card: false,
+    pts: [], rushes: [],
+    prohibitions: o.proh || [],                             // SF free faces can sit in a scheduled tow-away zone (build-sf-free.py); Seattle sends none
+    card: false,
   }));
 }
 

@@ -22,6 +22,8 @@
 # Source: https://data.sfgov.org/d/hi6h-neyh   (Socrata, no key, ~7.8k rows)
 import json, math, urllib.parse, urllib.request
 
+from sf_towaway import TowMatcher, fetch_towaway
+
 REGS = "https://data.sfgov.org/resource/hi6h-neyh.json"
 METERS = "https://data.sfgov.org/resource/8vzz-qzz9.json"
 UA = {"User-Agent": "park-daddy/1.0 (hey.cchen@gmail.com)"}
@@ -138,10 +140,13 @@ def near_meter(grid, coords):
 def build_free():
     grid = meter_grid()
 
+    print("Scheduled tow-away zones (ynvq-waab)…")
+    tow = TowMatcher(fetch_towaway())
+
     print("Time-limited blockfaces…")
     rows = fetch(REGS, {"$select": "regulation,hrlimit,length_ft,analysis_neighborhood,shape"})
 
-    out, metered, nolimit = [], 0, 0
+    out, metered, nolimit, towed = [], 0, 0, 0
     for row in rows:
         if (row.get("regulation") or "").strip().lower() != KEEP:
             continue
@@ -159,6 +164,9 @@ def build_free():
             spaces = max(1, int(float(row.get("length_ft") or 0) // FT_PER_SPACE))
         except ValueError:
             spaces = 1
+        proh = tow.match(coords)   # coords are already [lon, lat]
+        if proh:
+            towed += 1
         out.append({
             "h": hblock(row),
             "cat": "tl",       # every SF free block is time-limited (see header)
@@ -166,11 +174,12 @@ def build_free():
             "limit": lim,      # minutes — free, but capped
             "line": coords,
             "mid": midpoint(coords),
+            "proh": proh,      # scheduled tow-away windows on this curb face (usually [])
         })
 
     json.dump(out, open("data/sf-free.json", "w"), separators=(",", ":"))
     print(f"\nWrote {len(out)} free blockfaces -> data/sf-free.json"
-          f"  (dropped {metered} metered, {nolimit} with no posted limit)")
+          f"  (dropped {metered} metered, {nolimit} with no posted limit; {towed} carry a tow-away window)")
 
 
 if __name__ == "__main__":

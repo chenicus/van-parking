@@ -26,6 +26,8 @@
 #     Sunday" — SF meters Sundays, and a false free label sends drivers to a ticket.
 import csv, json, math, re, urllib.parse, urllib.request
 
+from sf_towaway import TowMatcher, fetch_towaway
+
 METERS = "https://data.sfgov.org/resource/8vzz-qzz9.json"
 UA = {"User-Agent": "park-daddy/1.0 (hey.cchen@gmail.com)"}
 PAGE = 50000
@@ -204,8 +206,10 @@ def build():
     print(f"Loading rates ({RATE_CSV})…")
     rates = load_rates(RATE_CSV)
     print(f"  {len(rates)} blocks have published rates")
+    print("Loading scheduled tow-away zones (ynvq-waab)…")
+    tow = TowMatcher(fetch_towaway())
 
-    out, unmatched, hundred_blocks = [], 0, 0
+    out, unmatched, hundred_blocks, towed = [], 0, 0, 0
     for key, pts in meter_blocks.items():
         r = rates.get(key)
         if not r:
@@ -220,6 +224,10 @@ def build():
         h = display_h(key)
         for grp in cluster(pts):   # one emitted block per curb-face segment (shared rate)
             c = centroid(grp)
+            # grp points are [lat, lon]; the matcher wants (lon, lat)
+            proh = tow.match([(p[1], p[0]) for p in grp])
+            if proh:
+                towed += 1
             out.append({
                 "h": h,
                 "lat": c[0], "lon": c[1],
@@ -228,12 +236,14 @@ def build():
                 "wkd": wkd,
                 "sat": sat,
                 "sun": sun,
+                "proh": proh,   # scheduled tow-away windows on this curb face (usually [])
             })
 
     out.sort(key=lambda x: -max([b["r"] for b in x["wkd"]] or [0]))
     json.dump(out, open("data/sf-meters.json", "w"), separators=(",", ":"))
     print(f"\nWrote {len(out)} block-face segments across {hundred_blocks} priced hundred-blocks")
     print(f"  -> data/sf-meters.json  ({sum(len(x['pts']) for x in out)} meter dots)")
+    print(f"  {towed} faces carry a scheduled tow-away window")
     print(f"  {unmatched} metered blocks had no rate row (dropped — can't price)")
 
 
